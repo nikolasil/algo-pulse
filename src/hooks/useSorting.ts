@@ -6,6 +6,7 @@ export const useSorting = (initialArray: number[]) => {
   const [isPaused, setIsPaused] = useState(true);
   const [speed, setSpeed] = useState(50);
   const [comparing, setComparing] = useState<number[]>([]);
+  const [activeLine, setActiveLine] = useState<number>(0);
 
   const arrayRef = useRef(initialArray);
   const speedRef = useRef(speed);
@@ -23,16 +24,12 @@ export const useSorting = (initialArray: number[]) => {
   const sleep = (ms?: number) =>
     new Promise((resolve) => setTimeout(resolve, ms ?? speedRef.current));
 
-  // Shuffles the existing array values
   const shuffleData = async () => {
     setIsPaused(false);
     let shuffled = [...arrayRef.current];
-    // Fisher-Yates Shuffle
     for (let i = shuffled.length - 1; i > 0; i--) {
       const j = Math.floor(Math.random() * (i + 1));
       [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
-
-      // Visual feedback of the shuffle
       if (i % 2 === 0) {
         setArray([...shuffled]);
         await sleep(10);
@@ -48,16 +45,17 @@ export const useSorting = (initialArray: number[]) => {
   ) => {
     setIsPaused(false);
     for await (const step of algoGenerator) {
+      if (step.line !== undefined) setActiveLine(step.line);
       if (step.array) updateArray(step.array);
       if (step.comparing) {
         setComparing(step.comparing);
-        // Play sound for the first element being compared
         if (onStep && step.comparing.length > 0) {
           onStep(arrayRef.current[step.comparing[0]]);
         }
       }
       await sleep();
     }
+    setActiveLine(0);
     setComparing([]);
     setIsPaused(true);
   };
@@ -66,6 +64,7 @@ export const useSorting = (initialArray: number[]) => {
     array,
     setArray: updateArray,
     comparing,
+    activeLine,
     isPaused,
     setIsPaused,
     speed,
