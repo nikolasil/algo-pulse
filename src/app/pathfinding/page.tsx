@@ -231,7 +231,8 @@ export default function PathfindingPage() {
           nodesExplored: explored,
           pathLength: pathLen,
           pathCost: pathCost,
-          status: pathLen > 0 ? 'Found' : 'No Path',
+          // The fix: Add 'as const' or cast the value to the specific type
+          status: (pathLen > 0 ? 'Found' : 'No Path') as 'Found' | 'No Path',
         },
         ...prev,
       ].slice(0, 10),
@@ -251,7 +252,11 @@ export default function PathfindingPage() {
     const startNode = workGrid[startPos.row][startPos.col];
     const endNode = workGrid[endPos.row][endPos.col];
 
-    let generator;
+    let generator: AsyncGenerator<
+      { grid: Node[][]; line: number } | { line: number },
+      void,
+      unknown
+    >;
     if (mode === 'A*')
       generator = aStar(workGrid, startNode, endNode, heuristic);
     else if (mode === 'Greedy')
@@ -270,7 +275,8 @@ export default function PathfindingPage() {
 
     async function* gridWrapper() {
       for await (const step of generator) {
-        if (step.grid) {
+        // Narrow the type by checking if 'grid' exists in the step object
+        if ('grid' in step && step.grid) {
           setGrid(step.grid);
           const flat = step.grid.flat();
           const pNodes = flat.filter((n) => n.isPath);
@@ -305,14 +311,23 @@ export default function PathfindingPage() {
 
     for (const name of algos) {
       const res = await handleExecute(name, true);
-      if (res) {
-        const finalGrid = res.lastStep?.grid || [];
+
+      if (res && res.lastStep) {
+        const step = res.lastStep;
+
+        // Explicitly tell TypeScript that if grid exists, it is a Node[][]
+        // Otherwise, it is an empty array of that same type
+        const finalGrid: Node[][] =
+          'grid' in step ? (step.grid as Node[][]) : [];
+
         const explored = finalGrid.flat().filter((n) => n.isVisited).length;
         const pathNodes = finalGrid.flat().filter((n) => n.isPath);
+
         const cost = pathNodes.reduce(
           (acc, curr) => acc + (curr.isMud ? 5 : 1),
           0,
         );
+
         results.push({
           name,
           time: res.time,
@@ -320,6 +335,7 @@ export default function PathfindingPage() {
           cost: pathNodes.length > 0 ? cost : 'N/A',
           found: pathNodes.length > 0,
         });
+
         addHistoryItem(
           `${name} (Quick)`,
           explored,
@@ -481,7 +497,6 @@ export default function PathfindingPage() {
             size={dimensions.cols}
             speed={speed}
             isPaused={isPaused}
-            onReset={() => initGrid(dimensions.rows, dimensions.cols)}
             onSpeedChange={setSpeed}
             onSizeChange={handleSizeChange}
           />

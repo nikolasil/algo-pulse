@@ -28,14 +28,23 @@ export const CodeViewer = ({ code, activeLine }: Props) => {
         }}
         showLineNumbers={true}
         wrapLines={true}
-        lineProps={(lineNumber) => {
-          const style: any = { display: 'block', width: '100%' };
-          if (lineNumber === activeLine) {
-            style.backgroundColor = 'rgba(6, 182, 212, 0.2)';
-            style.borderLeft = '2px solid #06b6d4';
-            style.paddingLeft = '4px';
-          }
-          return { style };
+        // Updated to explicitly return React.HTMLProps<HTMLElement> style
+        lineProps={(lineNumber: number) => {
+          const isCurrent = lineNumber === activeLine;
+          return {
+            style: {
+              display: 'block',
+              width: '100%',
+              backgroundColor: isCurrent
+                ? 'rgba(6, 182, 212, 0.2)'
+                : 'transparent',
+              borderLeft: isCurrent
+                ? '2px solid #06b6d4'
+                : '2px solid transparent',
+              paddingLeft: isCurrent ? '4px' : '4px',
+              transition: 'all 0.2s ease',
+            },
+          };
         }}
       >
         {code}
