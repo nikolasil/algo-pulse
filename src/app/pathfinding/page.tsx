@@ -137,7 +137,6 @@ export default function PathfindingPage() {
   const [isPanning, setIsPanning] = useState(false);
   const startPanRef = useRef({ x: 0, y: 0 });
 
-  // FIX: dimensions is now stateful to allow updates from ControlPanel
   const [dimensions, setDimensions] = useState({ rows: 15, cols: 30 });
   const [grid, setGrid] = useState<Node[][]>([]);
   const [treeData, setTreeData] = useState<TreeNode | null>(null);
@@ -157,7 +156,6 @@ export default function PathfindingPage() {
   const [activeTreeNode, setActiveTreeNode] = useState<number | null>(null);
   const [visitedTreeNodes, setVisitedTreeNodes] = useState<number[]>([]);
 
-  // Start/End positions are now derived or adjusted based on dimensions
   const startPos = {
     row: Math.floor(dimensions.rows / 2),
     col: Math.floor(dimensions.cols * 0.2),
@@ -188,9 +186,8 @@ export default function PathfindingPage() {
       ),
     );
     setSpeed(10);
-  }, [initGrid, dimensions, setSpeed]); // Added dimensions as dependency
+  }, [initGrid, dimensions, setSpeed]);
 
-  // Pan Handlers
   const handleMouseDown = (e: React.MouseEvent) => {
     setIsMousePressed(true);
     if (viewMode === 'Tree') {
@@ -367,7 +364,7 @@ export default function PathfindingPage() {
 
       if (isSilent) {
         const start = performance.now();
-        let last = { grid: workGrid };
+        let last: any = { grid: workGrid };
         for await (const step of gen) {
           last = step;
         }
@@ -674,21 +671,21 @@ export default function PathfindingPage() {
 
         <CodeViewer
           code={
-            viewMode === 'Grid'
+            (viewMode === 'Grid'
               ? {
                   Dijkstra: dijkstraCode,
                   'A*': aStarCode,
                   Greedy: greedyCode,
                   BFS: bfsCode,
                   DFS: dfsCode,
-                }[algoType]
+                }[algoType as string]
               : treeCode[
-                  algoType === 'Pre-Order'
+                  (algoType === 'Pre-Order'
                     ? 'preOrder'
                     : algoType === 'Post-Order'
                       ? 'postOrder'
-                      : 'inOrder'
-                ]
+                      : 'inOrder') as keyof typeof treeCode
+                ]) || ''
           }
           activeLine={activeLine}
         />
@@ -696,7 +693,6 @@ export default function PathfindingPage() {
 
       <section className="flex-1 p-6 flex flex-col gap-6 relative">
         <div className="flex justify-between items-center">
-          {/* FIX: onSizeChange now updates state, which triggers grid re-init */}
           <ControlPanel
             size={dimensions.cols}
             sizeShower={viewMode === 'Grid'}
