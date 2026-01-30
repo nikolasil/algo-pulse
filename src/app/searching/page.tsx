@@ -161,7 +161,7 @@ export default function SearchingPage() {
               Execution Trace
             </h2>
             <div className="flex gap-1">
-              {(['linear', 'jump', 'binary' ] as SearchAlgo[]).map((type) => (
+              {(['linear', 'jump', 'binary'] as SearchAlgo[]).map((type) => (
                 <button
                   key={type}
                   onClick={() => {
@@ -234,7 +234,7 @@ export default function SearchingPage() {
             size={arraySize}
             speed={speed}
             isPaused={isPaused && !isBenchmarking}
-            onReset={(n) => {
+            onSizeChange={(n) => {
               setArraySize(n);
               const newArr = Array.from(
                 { length: n },
@@ -242,8 +242,6 @@ export default function SearchingPage() {
               ).sort((a, b) => a - b);
               setArray(newArr);
               setTarget(newArr[Math.floor(Math.random() * n)]);
-              setFoundIndex(null);
-              setSearchRange(null);
             }}
             onSpeedChange={setSpeed}
           />

@@ -1,57 +1,59 @@
 'use client';
 
-interface Props {
-  onReset: (size: number) => void;
-  onSpeedChange: (speed: number) => void;
-  isPaused: boolean;
+interface ControlPanelProps {
   size: number;
   speed: number;
+  isPaused: boolean;
+  onSpeedChange: (speed: number) => void;
+  onSizeChange: (size: number) => void;
 }
 
 export const ControlPanel = ({
-  onReset,
-  onSpeedChange,
-  isPaused,
   size,
   speed,
-}: Props) => {
+  isPaused,
+  onSpeedChange,
+  onSizeChange,
+}: ControlPanelProps) => {
   return (
-    <div className="flex flex-col sm:flex-row gap-8 flex-1 justify-center">
-      {/* Array Size */}
-      <div className="flex flex-col gap-2 min-w-[140px]">
+    <div className="flex flex-wrap items-center gap-8 bg-slate-900/50 p-4 px-6 rounded-xl border border-slate-800 w-full md:w-auto">
+      {/* Size Slider */}
+      <div className="flex flex-col gap-1 min-w-[140px]">
         <div className="flex justify-between items-center">
           <label className="text-[10px] font-mono text-slate-500 uppercase tracking-widest">
-            Size
+            Resolution
           </label>
-          <span className="text-xs font-bold text-cyan-500">{size}</span>
+          <span className="text-[10px] font-mono text-cyan-400">{size}</span>
         </div>
         <input
           type="range"
           min="10"
-          max="200"
+          max="80"
           value={size}
           disabled={!isPaused}
-          onChange={(e) => onReset(Number(e.target.value))}
-          className="h-1.5 w-full bg-slate-800 rounded-lg appearance-none cursor-pointer accent-cyan-500 disabled:opacity-30"
+          onChange={(e) => onSizeChange(Number(e.target.value))}
+          className="w-full accent-cyan-500 cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed"
         />
       </div>
 
       {/* Speed Slider */}
-      <div className="flex flex-col gap-2 min-w-[140px]">
+      <div className="flex flex-col gap-1 min-w-[140px]">
         <div className="flex justify-between items-center">
           <label className="text-[10px] font-mono text-slate-500 uppercase tracking-widest">
-            Delay
+            Pulse Delay
           </label>
-          <span className="text-xs font-bold text-cyan-500">{speed}ms</span>
+          <span className="text-[10px] font-mono text-amber-400">
+            {speed}ms
+          </span>
         </div>
         <input
           type="range"
           min="1"
-          max="200"
-          step="1"
+          max="400"
+          step="5"
           value={speed}
           onChange={(e) => onSpeedChange(Number(e.target.value))}
-          className="h-1.5 w-full bg-slate-800 rounded-lg appearance-none cursor-pointer accent-cyan-500"
+          className="w-full accent-amber-500 cursor-pointer"
         />
       </div>
     </div>

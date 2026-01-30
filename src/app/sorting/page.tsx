@@ -178,7 +178,7 @@ export default function SortingPage() {
             size={arraySize}
             speed={speed}
             isPaused={isPaused && !isBenchmarking}
-            onReset={(n) => {
+            onSizeChange={(n) => {
               setArraySize(n);
               setArray(
                 Array.from(
