@@ -16,8 +16,8 @@ export const ALGO_CATEGORIES = [
       'Find the shortest path between nodes in a complex grid system.',
     icon: '🗺️',
     path: '/pathfinding',
-    status: 'COMING SOON',
-    algos: ["Dijkstra's", 'A* Search', 'BFS/DFS'],
+    status: 'ACTIVE',
+    algos: ["Dijkstra's", 'A* Search', 'Greedy Best-First Search'],
   },
   {
     id: 'searching',

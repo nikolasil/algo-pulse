@@ -1,4 +1,5 @@
 'use client';
+
 import { useState, useEffect, useCallback } from 'react';
 import { useAlgorithm } from '@/hooks/useAlgorithm';
 import { CodeViewer } from '@/components/CodeViewer';
@@ -7,7 +8,12 @@ import {
   Node,
   createNode,
   dijkstra,
+  aStar,
+  greedyBestFirst,
   dijkstraCode,
+  aStarCode,
+  greedyCode,
+  HeuristicType,
 } from '@/algorithms/pathfindingAlgorithms';
 
 interface HistoryItem {
@@ -15,17 +21,44 @@ interface HistoryItem {
   timestamp: string;
   nodesExplored: number;
   pathLength: number;
+  pathCost: number;
   status: 'Found' | 'No Path';
+  algorithm: string;
 }
 
+interface BenchmarkResult {
+  name: string;
+  time: string;
+  explored: number;
+  cost: number | string;
+  found: boolean;
+}
+
+type AlgoMode = 'Dijkstra' | 'A*' | 'Greedy';
+type BrushType = 'Wall' | 'Mud';
+
 export default function PathfindingPage() {
+  // --- States ---
   const [dimensions, setDimensions] = useState({ rows: 15, cols: 30 });
   const [grid, setGrid] = useState<Node[][]>([]);
+  const [algoType, setAlgoType] = useState<AlgoMode>('Dijkstra');
+  const [heuristic, setHeuristic] = useState<HeuristicType>('Manhattan');
+  const [brush, setBrush] = useState<BrushType>('Wall');
   const [isMousePressed, setIsMousePressed] = useState(false);
   const [isClient, setIsClient] = useState(false);
 
+  const [showBenchmark, setShowBenchmark] = useState(false);
+  const [benchmarkResults, setBenchmarkResults] = useState<BenchmarkResult[]>(
+    [],
+  );
+  const [isBenchmarking, setIsBenchmarking] = useState(false);
+
   const [history, setHistory] = useState<HistoryItem[]>([]);
-  const [currentStats, setCurrentStats] = useState({ explored: 0, path: 0 });
+  const [currentStats, setCurrentStats] = useState({
+    explored: 0,
+    path: 0,
+    cost: 0,
+  });
 
   const [isDraggingStart, setIsDraggingStart] = useState(false);
   const [isDraggingEnd, setIsDraggingEnd] = useState(false);
@@ -36,15 +69,12 @@ export default function PathfindingPage() {
     [],
   );
 
+  // --- Initialization ---
   const initGrid = useCallback((rows: number, cols: number) => {
-    const initialGrid = [];
-    for (let r = 0; r < rows; r++) {
-      const currentRow = [];
-      for (let c = 0; c < cols; c++) {
-        currentRow.push(createNode(r, c));
-      }
-      initialGrid.push(currentRow);
-    }
+    const newGrid: Node[][] = Array.from({ length: rows }, (_, r) =>
+      Array.from({ length: cols }, (_, c) => createNode(r, c)),
+    );
+
     const sRow = Math.floor(rows / 2);
     const sCol = Math.floor(cols / 4);
     const eRow = Math.floor(rows / 2);
@@ -52,8 +82,8 @@ export default function PathfindingPage() {
 
     setStartPos({ row: sRow, col: sCol });
     setEndPos({ row: eRow, col: eCol });
-    setGrid(initialGrid);
-    setCurrentStats({ explored: 0, path: 0 });
+    setGrid(newGrid);
+    setCurrentStats({ explored: 0, path: 0, cost: 0 });
   }, []);
 
   useEffect(() => {
@@ -70,67 +100,69 @@ export default function PathfindingPage() {
 
   const clearPath = () => {
     if (!isPaused) return;
-    const newGrid = grid.map((row) =>
-      row.map((node) => ({
-        ...node,
-        isVisited: false,
-        isPath: false,
-        distance: Infinity,
-        previousNode: null,
-      })),
+    setGrid((prev) =>
+      prev.map((row) =>
+        row.map((node) => ({
+          ...node,
+          isVisited: false,
+          isPath: false,
+          distance: Infinity,
+          previousNode: null,
+        })),
+      ),
     );
-    setGrid(newGrid);
-    setCurrentStats({ explored: 0, path: 0 });
+    setCurrentStats({ explored: 0, path: 0, cost: 0 });
   };
 
   const clearWalls = () => {
     if (!isPaused) return;
-    const newGrid = grid.map((row) =>
-      row.map((node) => ({
-        ...node,
-        isWall: false,
-        isVisited: false,
-        isPath: false,
-        distance: Infinity,
-        previousNode: null,
-      })),
+    setGrid((prev) =>
+      prev.map((row) =>
+        row.map((node) => ({
+          ...node,
+          isWall: false,
+          isMud: false,
+          isVisited: false,
+          isPath: false,
+          distance: Infinity,
+          previousNode: null,
+        })),
+      ),
     );
-    setGrid(newGrid);
-    setCurrentStats({ explored: 0, path: 0 });
+    setCurrentStats({ explored: 0, path: 0, cost: 0 });
   };
 
   const generateMaze = () => {
     if (!isPaused) return;
-
     const rows = dimensions.rows;
     const cols = dimensions.cols;
-
     const newGrid = grid.map((row) =>
       row.map((node) => ({
         ...node,
         isWall: true,
+        isMud: false,
         isVisited: false,
         isPath: false,
       })),
     );
-
-    const getNeighbors = (r: number, c: number) => {
-      const neighbors = [];
-      if (r >= 2) neighbors.push([r - 2, c]);
-      if (r <= rows - 3) neighbors.push([r + 2, c]);
-      if (c >= 2) neighbors.push([r, c - 2]);
-      if (c <= cols - 3) neighbors.push([r, c + 2]);
-      return neighbors;
-    };
-
     const stack: [number, number][] = [[0, 0]];
     newGrid[0][0].isWall = false;
     const visited = new Set(['0-0']);
 
     while (stack.length > 0) {
       const [currR, currC] = stack[stack.length - 1];
-      const neighbors = getNeighbors(currR, currC).filter(
-        ([nr, nc]) => !visited.has(`${nr}-${nc}`),
+      const neighbors = [
+        [currR - 2, currC],
+        [currR + 2, currC],
+        [currR, currC - 2],
+        [currR, currC + 2],
+      ].filter(
+        ([nr, nc]) =>
+          nr >= 0 &&
+          nr < rows &&
+          nc >= 0 &&
+          nc < cols &&
+          !visited.has(`${nr}-${nc}`),
       );
 
       if (neighbors.length > 0) {
@@ -144,11 +176,9 @@ export default function PathfindingPage() {
         stack.pop();
       }
     }
-
     newGrid[startPos.row][startPos.col].isWall = false;
     newGrid[endPos.row][endPos.col].isWall = false;
     setGrid(newGrid);
-    setCurrentStats({ explored: 0, path: 0 });
   };
 
   const handleNodeAction = (row: number, col: number) => {
@@ -163,16 +193,13 @@ export default function PathfindingPage() {
       setEndPos({ row, col });
       return;
     }
-    if (
-      (row === startPos.row && col === startPos.col) ||
-      (row === endPos.row && col === endPos.col)
-    )
-      return;
-
     setGrid((prev) => {
       const newGrid = prev.map((r) => [...r]);
       const target = newGrid[row][col];
-      newGrid[row][col] = { ...target, isWall: !target.isWall };
+      if (brush === 'Wall')
+        newGrid[row][col] = { ...target, isWall: !target.isWall, isMud: false };
+      else
+        newGrid[row][col] = { ...target, isMud: !target.isMud, isWall: false };
       return newGrid;
     });
   };
@@ -185,16 +212,33 @@ export default function PathfindingPage() {
     else handleNodeAction(row, col);
   };
 
-  const handleMouseUp = () => {
-    setIsMousePressed(false);
-    setIsDraggingStart(false);
-    setIsDraggingEnd(false);
+  const addHistoryItem = (
+    algoName: string,
+    explored: number,
+    pathLen: number,
+    pathCost: number,
+  ) => {
+    setHistory((prev) =>
+      [
+        {
+          id: Date.now(),
+          timestamp: new Date().toLocaleTimeString([], {
+            hour: '2-digit',
+            minute: '2-digit',
+            second: '2-digit',
+          }),
+          algorithm: algoName,
+          nodesExplored: explored,
+          pathLength: pathLen,
+          pathCost: pathCost,
+          status: pathLen > 0 ? 'Found' : 'No Path',
+        },
+        ...prev,
+      ].slice(0, 10),
+    ); // Keep last 10
   };
 
-  const handleExecute = async () => {
-    if (!isPaused) return;
-    setCurrentStats({ explored: 0, path: 0 });
-
+  const handleExecute = async (mode: AlgoMode = algoType, isSilent = false) => {
     const workGrid = grid.map((row) =>
       row.map((node) => ({
         ...node,
@@ -204,118 +248,235 @@ export default function PathfindingPage() {
         previousNode: null,
       })),
     );
-
     const startNode = workGrid[startPos.row][startPos.col];
     const endNode = workGrid[endPos.row][endPos.col];
-    const generator = dijkstra(workGrid, startNode, endNode);
 
-    let latestGrid: Node[][] = workGrid;
+    let generator;
+    if (mode === 'A*')
+      generator = aStar(workGrid, startNode, endNode, heuristic);
+    else if (mode === 'Greedy')
+      generator = greedyBestFirst(workGrid, startNode, endNode, heuristic);
+    else generator = dijkstra(workGrid, startNode, endNode);
+
+    if (isSilent) {
+      const startTime = performance.now();
+      let lastStep;
+      for await (const step of generator) {
+        lastStep = step;
+      }
+      const endTime = performance.now();
+      return { lastStep, time: (endTime - startTime).toFixed(2) };
+    }
 
     async function* gridWrapper() {
       for await (const step of generator) {
         if (step.grid) {
-          latestGrid = step.grid;
           setGrid(step.grid);
-          const visited = step.grid.flat().filter((n) => n.isVisited).length;
-          const path = step.grid.flat().filter((n) => n.isPath).length;
-          setCurrentStats({ explored: visited, path });
+          const flat = step.grid.flat();
+          const pNodes = flat.filter((n) => n.isPath);
+          const exp = flat.filter((n) => n.isVisited).length;
+          const cost = pNodes.reduce(
+            (acc, curr) => acc + (curr.isMud ? 5 : 1),
+            0,
+          );
+          setCurrentStats({ explored: exp, path: pNodes.length, cost: cost });
         }
         yield step;
       }
     }
-
     await runSimulation(gridWrapper());
 
-    const flatGrid = latestGrid.flat();
-    const visitedCount = flatGrid.filter((n) => n.isVisited).length;
-    const pathCount = flatGrid.filter((n) => n.isPath).length;
-    const success = pathCount > 0;
+    // After simulation, add to history
+    const finalFlat = grid.flat();
+    const finalP = finalFlat.filter((n) => n.isPath);
+    addHistoryItem(
+      mode,
+      finalFlat.filter((n) => n.isVisited).length,
+      finalP.length,
+      finalP.reduce((acc, curr) => acc + (curr.isMud ? 5 : 1), 0),
+    );
+    return null;
+  };
 
-    const newEntry: HistoryItem = {
-      id: Date.now(),
-      timestamp: new Date().toLocaleTimeString([], {
-        hour: '2-digit',
-        minute: '2-digit',
-        second: '2-digit',
-      }),
-      nodesExplored: visitedCount,
-      pathLength: pathCount,
-      status: success ? 'Found' : 'No Path',
-    };
+  const runQuickBenchmark = async () => {
+    if (!isPaused) return;
+    const algos: AlgoMode[] = ['Dijkstra', 'A*', 'Greedy'];
+    const results: BenchmarkResult[] = [];
 
-    setHistory((prev) => [newEntry, ...prev].slice(0, 5));
+    for (const name of algos) {
+      const res = await handleExecute(name, true);
+      if (res) {
+        const finalGrid = res.lastStep?.grid || [];
+        const explored = finalGrid.flat().filter((n) => n.isVisited).length;
+        const pathNodes = finalGrid.flat().filter((n) => n.isPath);
+        const cost = pathNodes.reduce(
+          (acc, curr) => acc + (curr.isMud ? 5 : 1),
+          0,
+        );
+        results.push({
+          name,
+          time: res.time,
+          explored,
+          cost: pathNodes.length > 0 ? cost : 'N/A',
+          found: pathNodes.length > 0,
+        });
+        addHistoryItem(
+          `${name} (Quick)`,
+          explored,
+          pathNodes.length,
+          Number(cost),
+        );
+      }
+    }
+    setBenchmarkResults(results);
+    setShowBenchmark(true);
+  };
+
+  const runVisualBenchmark = async () => {
+    if (!isPaused) return;
+    setIsBenchmarking(true);
+    const algos: AlgoMode[] = ['Dijkstra', 'A*', 'Greedy'];
+    for (const name of algos) {
+      setAlgoType(name);
+      await handleExecute(name, false);
+      await new Promise((r) => setTimeout(r, 800));
+    }
+    setIsBenchmarking(false);
   };
 
   if (!isClient) return null;
 
   return (
-    <main className="flex flex-col lg:flex-row min-h-screen bg-slate-950 text-slate-100">
-      <aside className="w-full lg:w-[350px] bg-slate-900 border-r border-slate-800 p-6 flex flex-col gap-6 overflow-y-auto">
+    <main className="flex flex-col lg:flex-row min-h-screen bg-slate-950 text-slate-100 font-sans">
+      <aside className="w-full lg:w-[350px] bg-slate-900 border-r border-slate-800 p-6 flex flex-col gap-6 overflow-y-auto custom-scrollbar">
         <h1 className="text-2xl font-black text-cyan-500 tracking-tighter italic">
           GRID PULSE
         </h1>
 
-        <div className="bg-slate-950 p-4 rounded-xl border border-slate-800 shadow-inner">
-          <h3 className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-3">
-            Live Telemetry
-          </h3>
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <p className="text-[10px] text-slate-500 uppercase">Explored</p>
-              <p className="text-xl font-mono text-cyan-400 font-bold">
-                {currentStats.explored}
-              </p>
+        {/* Brush & Algo selectors */}
+        <div className="space-y-4">
+          <div className="space-y-2">
+            <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">
+              Brush
+            </p>
+            <div className="flex bg-slate-950 p-1 rounded-xl border border-slate-800">
+              <button
+                onClick={() => setBrush('Wall')}
+                className={`flex-1 py-2 text-[10px] font-bold rounded-lg transition-all ${brush === 'Wall' ? 'bg-slate-700 text-white' : 'text-slate-500'}`}
+              >
+                WALL
+              </button>
+              <button
+                onClick={() => setBrush('Mud')}
+                className={`flex-1 py-2 text-[10px] font-bold rounded-lg transition-all ${brush === 'Mud' ? 'bg-amber-600 text-white' : 'text-slate-500'}`}
+              >
+                MUD
+              </button>
             </div>
-            <div>
-              <p className="text-[10px] text-slate-500 uppercase">Path</p>
-              <p className="text-xl font-mono text-amber-400 font-bold">
-                {currentStats.path}
-              </p>
+          </div>
+
+          <div className="space-y-2">
+            <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">
+              Algorithm
+            </p>
+            <div className="flex flex-col gap-1 bg-slate-950 p-1 rounded-xl border border-slate-800">
+              {(['Dijkstra', 'A*', 'Greedy'] as AlgoMode[]).map((mode) => (
+                <button
+                  key={mode}
+                  onClick={() => setAlgoType(mode)}
+                  className={`py-2 text-[10px] font-bold rounded-lg transition-all ${algoType === mode ? 'bg-cyan-500 text-slate-950 shadow-lg' : 'text-slate-500'}`}
+                >
+                  {mode.toUpperCase()}
+                </button>
+              ))}
             </div>
           </div>
         </div>
 
-        <div className="flex-1">
-          <h3 className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-3">
-            Session History
-          </h3>
-          <div className="space-y-2 max-h-[200px] overflow-y-auto pr-2 custom-scrollbar">
+        {/* Live Stats */}
+        <div className="bg-slate-950 p-4 rounded-xl border border-slate-800 grid grid-cols-3 gap-2 text-center">
+          <div>
+            <p className="text-[9px] text-slate-500 uppercase">Explored</p>
+            <p className="text-lg font-mono text-cyan-400 font-bold">
+              {currentStats.explored}
+            </p>
+          </div>
+          <div>
+            <p className="text-[9px] text-slate-500 uppercase">Length</p>
+            <p className="text-lg font-mono text-amber-400 font-bold">
+              {currentStats.path}
+            </p>
+          </div>
+          <div>
+            <p className="text-[9px] text-slate-500 uppercase">Cost</p>
+            <p className="text-lg font-mono text-emerald-400 font-bold">
+              {currentStats.cost}
+            </p>
+          </div>
+        </div>
+
+        {/* History Section - RE-ADDED HERE */}
+        <div className="space-y-3">
+          <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">
+            Run History
+          </p>
+          <div className="flex flex-col gap-2 max-h-[160px] overflow-y-auto pr-1 custom-scrollbar">
             {history.length === 0 && (
-              <p className="text-xs text-slate-600 italic">
-                Waiting for first run...
+              <p className="text-[10px] text-slate-600 italic">
+                No runs recorded...
               </p>
             )}
             {history.map((item) => (
               <div
                 key={item.id}
-                className="bg-slate-800/40 p-3 rounded-lg border border-slate-700 text-[11px] font-mono"
+                className="bg-slate-950/50 p-3 rounded-xl border border-slate-800/50 flex flex-col gap-1"
               >
-                <div className="flex justify-between mb-1">
-                  <span className="text-slate-500">{item.timestamp}</span>
+                <div className="flex justify-between items-center">
+                  <span className="text-[10px] font-bold text-cyan-500">
+                    {item.algorithm}
+                  </span>
+                  <span className="text-[9px] text-slate-600 font-mono">
+                    {item.timestamp}
+                  </span>
+                </div>
+                <div className="flex gap-3 text-[9px] text-slate-400 font-mono">
+                  <span>EXP: {item.nodesExplored}</span>
+                  <span>COST: {item.pathCost}</span>
                   <span
                     className={
                       item.status === 'Found'
-                        ? 'text-emerald-400'
-                        : 'text-rose-400 font-bold'
+                        ? 'text-emerald-500'
+                        : 'text-rose-500'
                     }
                   >
                     {item.status}
                   </span>
-                </div>
-                <div className="flex gap-3 text-slate-300">
-                  <span>EXP: {item.nodesExplored}</span>
-                  <span>PTH: {item.pathLength}</span>
                 </div>
               </div>
             ))}
           </div>
         </div>
 
-        <CodeViewer code={dijkstraCode} activeLine={activeLine} />
+        <CodeViewer
+          code={
+            algoType === 'Dijkstra'
+              ? dijkstraCode
+              : algoType === 'A*'
+                ? aStarCode
+                : greedyCode
+          }
+          activeLine={activeLine}
+        />
       </aside>
 
-      <section className="flex-1 p-6 flex flex-col gap-6">
-        <div className="flex flex-wrap gap-4 items-center">
+      <section className="flex-1 p-6 flex flex-col gap-6 relative">
+        {isBenchmarking && (
+          <div className="absolute top-10 left-1/2 -translate-x-1/2 z-50 bg-indigo-600 px-6 py-2 rounded-full font-bold animate-pulse shadow-2xl">
+            AUTO-BENCHMARK: {algoType.toUpperCase()}
+          </div>
+        )}
+
+        <div className="flex flex-wrap gap-4 items-center justify-between">
           <ControlPanel
             size={dimensions.cols}
             speed={speed}
@@ -327,35 +488,39 @@ export default function PathfindingPage() {
           <div className="flex gap-2">
             <button
               onClick={generateMaze}
-              disabled={!isPaused}
-              className="px-4 py-2 bg-slate-800 border border-slate-700 rounded-xl text-[10px] font-bold uppercase hover:bg-slate-700 transition-colors disabled:opacity-30 active:scale-95"
+              className="px-4 py-2 bg-slate-800 border border-slate-700 rounded-xl text-[10px] font-bold uppercase hover:bg-slate-700"
             >
-              Generate Maze
+              Maze
             </button>
             <button
               onClick={clearWalls}
-              disabled={!isPaused}
-              className="px-4 py-2 bg-slate-800 border border-slate-700 rounded-xl text-[10px] font-bold uppercase hover:bg-slate-700 transition-colors disabled:opacity-30 active:scale-95 text-rose-400 border-rose-900/30"
+              className="px-4 py-2 bg-slate-800 border border-slate-700 rounded-xl text-[10px] font-bold uppercase hover:bg-slate-700 text-rose-400"
             >
-              Clear Walls
+              Clear
+            </button>
+            <div className="h-8 w-[1px] bg-slate-800 mx-1" />
+            <button
+              onClick={runQuickBenchmark}
+              className="px-4 py-2 bg-indigo-600 border border-indigo-500 rounded-xl text-[10px] font-bold uppercase hover:bg-indigo-500 shadow-lg shadow-indigo-500/20"
+            >
+              Quick
             </button>
             <button
-              onClick={clearPath}
-              disabled={!isPaused}
-              className="px-4 py-2 bg-slate-800 border border-slate-700 rounded-xl text-[10px] font-bold uppercase hover:bg-slate-700 transition-colors disabled:opacity-30 active:scale-95"
+              onClick={runVisualBenchmark}
+              className="px-4 py-2 bg-slate-100 text-slate-950 rounded-xl text-[10px] font-bold uppercase hover:bg-white"
             >
-              Clear Path
+              Visual (All)
             </button>
           </div>
         </div>
 
         <div
           className="flex-1 bg-slate-950 border border-slate-800 rounded-3xl flex items-center justify-center overflow-hidden"
-          onMouseLeave={handleMouseUp}
-          onMouseUp={handleMouseUp}
+          onMouseLeave={() => setIsMousePressed(false)}
+          onMouseUp={() => setIsMousePressed(false)}
         >
           <div
-            className="grid gap-[1px] bg-slate-800 p-[1px] select-none"
+            className="grid gap-[1px] bg-slate-800 p-[1px] select-none shadow-2xl"
             style={{
               gridTemplateColumns: `repeat(${dimensions.cols}, ${dimensions.cols > 45 ? '10px' : '18px'})`,
             }}
@@ -368,18 +533,20 @@ export default function PathfindingPage() {
                   onMouseEnter={() =>
                     isMousePressed && handleNodeAction(rIdx, cIdx)
                   }
-                  className={`${dimensions.cols > 45 ? 'w-[10px] h-[10px]' : 'w-[18px] h-[18px]'} transition-colors duration-100 ${
+                  className={`${dimensions.cols > 45 ? 'w-[10px] h-[10px]' : 'w-[18px] h-[18px]'} transition-all duration-200 ${
                     rIdx === startPos.row && cIdx === startPos.col
-                      ? 'bg-emerald-400 scale-110 z-10 shadow-[0_0_8px_#34d399]'
+                      ? 'bg-emerald-400 scale-110 z-10 shadow-[0_0_10px_#34d399]'
                       : rIdx === endPos.row && cIdx === endPos.col
-                        ? 'bg-rose-500 scale-110 z-10 shadow-[0_0_8px_#f43f5e]'
+                        ? 'bg-rose-500 scale-110 z-10 shadow-[0_0_10px_#f43f5e]'
                         : node.isPath
-                          ? 'bg-amber-400'
+                          ? 'bg-amber-400 scale-[1.05]'
                           : node.isVisited
-                            ? 'bg-cyan-500/30'
+                            ? 'bg-cyan-500/20'
                             : node.isWall
                               ? 'bg-slate-700'
-                              : 'bg-slate-900 hover:bg-slate-800'
+                              : node.isMud
+                                ? 'bg-amber-900/60'
+                                : 'bg-slate-900 hover:bg-slate-800'
                   }`}
                 />
               )),
@@ -388,13 +555,70 @@ export default function PathfindingPage() {
         </div>
 
         <button
-          onClick={handleExecute}
-          disabled={!isPaused}
-          className="w-full py-4 bg-cyan-500 text-slate-950 font-black rounded-xl uppercase tracking-widest hover:bg-cyan-400 active:scale-[0.98] transition-all disabled:opacity-30"
+          onClick={() => handleExecute()}
+          disabled={!isPaused || isBenchmarking}
+          className="w-full py-4 bg-cyan-500 text-slate-950 font-black rounded-xl uppercase tracking-widest hover:bg-cyan-400 shadow-xl shadow-cyan-500/20 transition-all active:scale-[0.98] disabled:opacity-30"
         >
-          {isPaused ? 'Run Dijkstra' : 'Calculating...'}
+          {isPaused ? `RUN ${algoType}` : 'ANALYZING...'}
         </button>
       </section>
+
+      {/* Benchmark Modal */}
+      {showBenchmark && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-slate-950/90 backdrop-blur-md p-4">
+          <div className="bg-slate-900 border border-slate-700 w-full max-w-2xl rounded-3xl p-8 shadow-2xl animate-in zoom-in-95 duration-200">
+            <div className="flex justify-between items-center mb-6">
+              <h2 className="text-2xl font-black text-white italic">
+                WARP RESULTS
+              </h2>
+              <button
+                onClick={() => setShowBenchmark(false)}
+                className="text-slate-400 hover:text-white text-xl"
+              >
+                ✕
+              </button>
+            </div>
+            <div className="overflow-hidden rounded-xl border border-slate-800">
+              <table className="w-full text-left text-sm">
+                <thead className="bg-slate-950 text-[10px] uppercase text-slate-500 font-bold">
+                  <tr>
+                    <th className="p-4">Algorithm</th>
+                    <th className="p-4">Time</th>
+                    <th className="p-4">Explored</th>
+                    <th className="p-4">Cost</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-800">
+                  {benchmarkResults.map((res) => (
+                    <tr key={res.name} className="hover:bg-slate-800/30">
+                      <td className="p-4 font-bold text-cyan-400">
+                        {res.name}
+                      </td>
+                      <td className="p-4 font-mono text-white">{res.time}ms</td>
+                      <td className="p-4 font-mono text-amber-400">
+                        {res.explored}
+                      </td>
+                      <td
+                        className={`p-4 font-mono ${res.found ? 'text-emerald-400' : 'text-rose-500'}`}
+                      >
+                        {res.cost}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            <div className="mt-6 flex justify-end">
+              <button
+                onClick={() => setShowBenchmark(false)}
+                className="px-8 py-3 bg-slate-800 rounded-xl font-bold uppercase text-xs hover:bg-slate-700 text-white transition-colors"
+              >
+                Close Analysis
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </main>
   );
 }
