@@ -232,12 +232,11 @@ export default function PathfindingPage() {
           nodesExplored: explored,
           pathLength: pathLen,
           pathCost: pathCost,
-          // The fix: Add 'as const' or cast the value to the specific type
           status: (pathLen > 0 ? 'Found' : 'No Path') as 'Found' | 'No Path',
         },
         ...prev,
       ].slice(0, 10),
-    ); // Keep last 10
+    );
   };
 
   const handleExecute = async (mode: AlgoMode = algoType, isSilent = false) => {
@@ -276,7 +275,6 @@ export default function PathfindingPage() {
 
     async function* gridWrapper() {
       for await (const step of generator) {
-        // Narrow the type by checking if 'grid' exists in the step object
         if ('grid' in step && step.grid) {
           setGrid(step.grid);
           const flat = step.grid.flat();
@@ -293,7 +291,6 @@ export default function PathfindingPage() {
     }
     await runSimulation(gridWrapper());
 
-    // After simulation, add to history
     const finalFlat = grid.flat();
     const finalP = finalFlat.filter((n) => n.isPath);
     addHistoryItem(
@@ -312,23 +309,16 @@ export default function PathfindingPage() {
 
     for (const name of algos) {
       const res = await handleExecute(name, true);
-
       if (res && res.lastStep) {
         const step = res.lastStep;
-
-        // Explicitly tell TypeScript that if grid exists, it is a Node[][]
-        // Otherwise, it is an empty array of that same type
         const finalGrid: Node[][] =
           'grid' in step ? (step.grid as Node[][]) : [];
-
         const explored = finalGrid.flat().filter((n) => n.isVisited).length;
         const pathNodes = finalGrid.flat().filter((n) => n.isPath);
-
         const cost = pathNodes.reduce(
           (acc, curr) => acc + (curr.isMud ? 5 : 1),
           0,
         );
-
         results.push({
           name,
           time: res.time,
@@ -336,7 +326,6 @@ export default function PathfindingPage() {
           cost: pathNodes.length > 0 ? cost : 'N/A',
           found: pathNodes.length > 0,
         });
-
         addHistoryItem(
           `${name} (Quick)`,
           explored,
@@ -368,7 +357,6 @@ export default function PathfindingPage() {
       <aside className="w-full lg:w-[350px] bg-slate-900 border-r border-slate-800 p-6 flex flex-col gap-6 overflow-y-auto custom-scrollbar">
         <NavHeader title="PathFind Pulse" subtitle="Diagnostic Engine" />
 
-        {/* Brush & Algo selectors */}
         <div className="space-y-4">
           <div className="space-y-2">
             <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">
@@ -406,9 +394,30 @@ export default function PathfindingPage() {
               ))}
             </div>
           </div>
+
+          {/* New Heuristic Selector - Appears only for A* and Greedy */}
+          {(algoType === 'A*' || algoType === 'Greedy') && (
+            <div className="space-y-2 animate-in fade-in slide-in-from-top-2 duration-300">
+              <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">
+                Heuristic Distance
+              </p>
+              <div className="grid grid-cols-1 gap-1 bg-slate-950 p-1 rounded-xl border border-slate-800">
+                {(
+                  ['Manhattan', 'Euclidean'] as HeuristicType[]
+                ).map((type) => (
+                  <button
+                    key={type}
+                    onClick={() => setHeuristic(type)}
+                    className={`py-2 text-[10px] font-bold rounded-lg transition-all ${heuristic === type ? 'bg-indigo-500 text-white' : 'text-slate-500'}`}
+                  >
+                    {type.toUpperCase()}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
 
-        {/* Live Stats */}
         <div className="bg-slate-950 p-4 rounded-xl border border-slate-800 grid grid-cols-3 gap-2 text-center">
           <div>
             <p className="text-[9px] text-slate-500 uppercase">Explored</p>
@@ -430,7 +439,6 @@ export default function PathfindingPage() {
           </div>
         </div>
 
-        {/* History Section - RE-ADDED HERE */}
         <div className="space-y-3">
           <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">
             Run History
@@ -577,7 +585,6 @@ export default function PathfindingPage() {
         </button>
       </section>
 
-      {/* Benchmark Modal */}
       {showBenchmark && (
         <div className="fixed inset-0 z-[60] flex items-center justify-center bg-slate-950/90 backdrop-blur-md p-4">
           <div className="bg-slate-900 border border-slate-700 w-full max-w-2xl rounded-3xl p-8 shadow-2xl animate-in zoom-in-95 duration-200">
