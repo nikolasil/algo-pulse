@@ -70,6 +70,11 @@ export default function PathfindingPage() {
     [],
   );
 
+  // Helper to format algorithm name with heuristic
+  const getDisplayName = (mode: AlgoMode, h: HeuristicType) => {
+    return mode === 'Dijkstra' ? mode : `${mode} (${h})`;
+  };
+
   // --- Initialization ---
   const initGrid = useCallback((rows: number, cols: number) => {
     const newGrid: Node[][] = Array.from({ length: rows }, (_, r) =>
@@ -294,7 +299,7 @@ export default function PathfindingPage() {
     const finalFlat = grid.flat();
     const finalP = finalFlat.filter((n) => n.isPath);
     addHistoryItem(
-      mode,
+      getDisplayName(mode, heuristic),
       finalFlat.filter((n) => n.isVisited).length,
       finalP.length,
       finalP.reduce((acc, curr) => acc + (curr.isMud ? 5 : 1), 0),
@@ -319,15 +324,16 @@ export default function PathfindingPage() {
           (acc, curr) => acc + (curr.isMud ? 5 : 1),
           0,
         );
+        const displayName = getDisplayName(name, heuristic);
         results.push({
-          name,
+          name: displayName,
           time: res.time,
           explored,
           cost: pathNodes.length > 0 ? cost : 'N/A',
           found: pathNodes.length > 0,
         });
         addHistoryItem(
-          `${name} (Quick)`,
+          `${displayName} (Quick)`,
           explored,
           pathNodes.length,
           Number(cost),
@@ -389,22 +395,19 @@ export default function PathfindingPage() {
                   onClick={() => setAlgoType(mode)}
                   className={`py-2 text-[10px] font-bold rounded-lg transition-all ${algoType === mode ? 'bg-cyan-500 text-slate-950 shadow-lg' : 'text-slate-500'}`}
                 >
-                  {mode.toUpperCase()}
+                  {getDisplayName(mode, heuristic).toUpperCase()}
                 </button>
               ))}
             </div>
           </div>
 
-          {/* New Heuristic Selector - Appears only for A* and Greedy */}
           {(algoType === 'A*' || algoType === 'Greedy') && (
             <div className="space-y-2 animate-in fade-in slide-in-from-top-2 duration-300">
               <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">
                 Heuristic Distance
               </p>
               <div className="grid grid-cols-1 gap-1 bg-slate-950 p-1 rounded-xl border border-slate-800">
-                {(
-                  ['Manhattan', 'Euclidean'] as HeuristicType[]
-                ).map((type) => (
+                {(['Manhattan', 'Euclidean'] as HeuristicType[]).map((type) => (
                   <button
                     key={type}
                     onClick={() => setHeuristic(type)}
@@ -495,7 +498,7 @@ export default function PathfindingPage() {
       <section className="flex-1 p-6 flex flex-col gap-6 relative">
         {isBenchmarking && (
           <div className="absolute top-10 left-1/2 -translate-x-1/2 z-50 bg-indigo-600 px-6 py-2 rounded-full font-bold animate-pulse shadow-2xl">
-            AUTO-BENCHMARK: {algoType.toUpperCase()}
+            AUTO-BENCHMARK: {getDisplayName(algoType, heuristic).toUpperCase()}
           </div>
         )}
 
@@ -581,7 +584,9 @@ export default function PathfindingPage() {
           disabled={!isPaused || isBenchmarking}
           className="w-full py-4 bg-cyan-500 text-slate-950 font-black rounded-xl uppercase tracking-widest hover:bg-cyan-400 shadow-xl shadow-cyan-500/20 transition-all active:scale-[0.98] disabled:opacity-30"
         >
-          {isPaused ? `RUN ${algoType}` : 'ANALYZING...'}
+          {isPaused
+            ? `RUN ${getDisplayName(algoType, heuristic)}`
+            : 'ANALYZING...'}
         </button>
       </section>
 
