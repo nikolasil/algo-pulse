@@ -3,9 +3,13 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { useSorting } from '@/hooks/useSorting';
 import { ControlPanel } from '@/components/ControlPanel';
 import { bubbleSort } from '@/algorithms/sorting/bubbleSort';
+import { quickSort } from '@/algorithms/sorting/quickSort';
+
+type AlgorithmType = 'bubble' | 'quick';
 
 export default function SortingPage() {
   const [arraySize, setArraySize] = useState(50);
+  const [algorithm, setAlgorithm] = useState<AlgorithmType>('bubble');
   const [isClient, setIsClient] = useState(false);
   const hasInitialized = useRef(false);
 
@@ -32,32 +36,24 @@ export default function SortingPage() {
 
   useEffect(() => {
     if (isClient && !hasInitialized.current) {
-      const initialData = generateRandomArray(arraySize);
-      setArray(initialData);
+      setArray(generateRandomArray(arraySize));
       hasInitialized.current = true;
     }
   }, [isClient, arraySize, generateRandomArray, setArray]);
 
   const handleReset = (newSize: number) => {
     setArraySize(newSize);
-    const newData = generateRandomArray(newSize);
-    setArray(newData);
+    setArray(generateRandomArray(newSize));
   };
 
   const handleStart = () => {
-    // We pass the generator to the hook's controller
-    startSorting(bubbleSort(array));
+    const generator =
+      algorithm === 'bubble' ? bubbleSort(array) : quickSort([...array]); // Pass a copy for recursive safety
+
+    startSorting(generator);
   };
 
-  if (!isClient) {
-    return (
-      <main className="flex flex-col items-center p-8 bg-slate-950 min-h-screen">
-        <div className="animate-pulse text-slate-700">
-          Loading Visualizer...
-        </div>
-      </main>
-    );
-  }
+  if (!isClient) return <div className="bg-slate-950 min-h-screen" />;
 
   return (
     <main className="flex flex-col items-center p-8 bg-slate-950 min-h-screen text-slate-100">
@@ -71,6 +67,23 @@ export default function SortingPage() {
       </header>
 
       <div className="flex flex-col items-center gap-6 w-full max-w-4xl">
+        <div className="flex gap-4 mb-2">
+          {(['bubble', 'quick'] as AlgorithmType[]).map((algo) => (
+            <button
+              key={algo}
+              onClick={() => setAlgorithm(algo)}
+              disabled={!isPaused}
+              className={`px-4 py-1 rounded text-xs font-bold uppercase tracking-widest transition-all ${
+                algorithm === algo
+                  ? 'bg-cyan-500 text-slate-950'
+                  : 'bg-slate-800 text-slate-400 hover:bg-slate-700'
+              }`}
+            >
+              {algo} sort
+            </button>
+          ))}
+        </div>
+
         <ControlPanel
           size={arraySize}
           speed={speed}
@@ -84,7 +97,7 @@ export default function SortingPage() {
           disabled={!isPaused}
           className="px-8 py-3 bg-cyan-600 hover:bg-cyan-500 disabled:bg-slate-800 disabled:text-slate-500 text-white font-bold rounded-full transition-all shadow-lg shadow-cyan-900/20 active:scale-95"
         >
-          {isPaused ? 'RUN BUBBLE SORT' : 'SORTING...'}
+          {isPaused ? `RUN ${algorithm.toUpperCase()} SORT` : 'SORTING...'}
         </button>
       </div>
 
