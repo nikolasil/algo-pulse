@@ -15,6 +15,7 @@ import {
   greedyCode,
   HeuristicType,
 } from '@/algorithms/pathfindingAlgorithms';
+import { NavHeader } from '@/components/NavHeader';
 
 interface HistoryItem {
   id: number;
@@ -365,9 +366,7 @@ export default function PathfindingPage() {
   return (
     <main className="flex flex-col lg:flex-row min-h-screen bg-slate-950 text-slate-100 font-sans">
       <aside className="w-full lg:w-[350px] bg-slate-900 border-r border-slate-800 p-6 flex flex-col gap-6 overflow-y-auto custom-scrollbar">
-        <h1 className="text-2xl font-black text-cyan-500 tracking-tighter italic">
-          GRID PULSE
-        </h1>
+        <NavHeader title="PathFind Pulse" subtitle="Diagnostic Engine" />
 
         {/* Brush & Algo selectors */}
         <div className="space-y-4">

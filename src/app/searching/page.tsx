@@ -13,6 +13,7 @@ import {
   jumpSearch,
   jumpSearchCode,
 } from '@/algorithms/searchingAlgorithms';
+import { NavHeader } from '@/components/NavHeader';
 
 type SearchAlgo = 'linear' | 'binary' | 'jump';
 
@@ -191,14 +192,7 @@ export default function SearchingPage() {
   return (
     <main className="flex flex-col lg:flex-row min-h-screen bg-slate-950 text-slate-100">
       <aside className="w-full lg:w-[420px] bg-slate-900 border-r border-slate-800 p-6 flex flex-col gap-6 overflow-y-auto max-h-screen custom-scrollbar">
-        <header>
-          <h1 className="text-2xl font-black bg-gradient-to-br from-cyan-400 to-blue-600 bg-clip-text text-transparent italic">
-            SEARCH PULSE
-          </h1>
-          <p className="text-[10px] font-mono text-slate-500 uppercase tracking-widest mt-1">
-            Diagnostic Engine
-          </p>
-        </header>
+        <NavHeader title="Search Pulse" subtitle="Diagnostic Engine" />
 
         <section>
           <div className="flex justify-between items-center mb-2">
@@ -404,7 +398,6 @@ export default function SearchingPage() {
     </main>
   );
 }
-
 
 function ComplexityLegend({ currentAlgo }: { currentAlgo: SearchAlgo }) {
   const details = {
