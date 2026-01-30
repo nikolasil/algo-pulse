@@ -11,13 +11,22 @@ export const ALGO_CATEGORIES = [
   },
   {
     id: 'pathfinding',
-    title: 'Pathfinding',
+    title: 'Pathfinding & Tree Traversal',
     description:
       'Find the shortest path between nodes in a complex grid system.',
     icon: '🗺️',
     path: '/pathfinding',
     status: 'ACTIVE',
-    algos: ["Dijkstra's", 'A* Search', 'Greedy Best-First Search'],
+    algos: [
+      "Dijkstra's",
+      'A* Search (Manhattan, Euclidean)',
+      'Greedy Best-First Search (Manhattan, Euclidean)',
+      'BFS',
+      'DFS',
+      'In-Order',
+      'Pre-Order',
+      'Post-Order',
+    ],
   },
   {
     id: 'searching',
