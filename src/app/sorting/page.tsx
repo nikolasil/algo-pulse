@@ -23,12 +23,20 @@ interface HistoryItem {
   time: number;
 }
 
+interface BenchmarkResult {
+  name: string;
+  time: string;
+  complexity: string;
+}
+
 export default function SortingPage() {
   const [arraySize, setArraySize] = useState(50);
   const [algorithm, setAlgorithm] = useState<AlgorithmType>('bubble');
   const [history, setHistory] = useState<HistoryItem[]>([]);
   const [isClient, setIsClient] = useState(false);
   const [isBenchmarking, setIsBenchmarking] = useState(false);
+  const [showQuickReport, setShowQuickReport] = useState(false);
+  const [quickResults, setQuickResults] = useState<BenchmarkResult[]>([]);
   const hasInitialized = useRef(false);
 
   const { playTone } = useAudio();
@@ -58,11 +66,23 @@ export default function SortingPage() {
     (type: AlgorithmType, currentArray: number[]) => {
       switch (type) {
         case 'quick':
-          return { gen: quickSort([...currentArray]), code: quickSortCode };
+          return {
+            gen: quickSort([...currentArray]),
+            code: quickSortCode,
+            complexity: 'O(n log n)',
+          };
         case 'merge':
-          return { gen: mergeSort([...currentArray]), code: mergeSortCode };
+          return {
+            gen: mergeSort([...currentArray]),
+            code: mergeSortCode,
+            complexity: 'O(n log n)',
+          };
         default:
-          return { gen: bubbleSort([...currentArray]), code: bubbleSortCode };
+          return {
+            gen: bubbleSort([...currentArray]),
+            code: bubbleSortCode,
+            complexity: 'O(n²)',
+          };
       }
     },
     [],
@@ -77,15 +97,15 @@ export default function SortingPage() {
       [
         { id: Date.now(), algorithm, size: array.length, time: duration },
         ...prev,
-      ].slice(0, 5),
+      ].slice(0, 10),
     );
   };
 
-  const runBenchmark = async () => {
+  // --- MODE 1: VISUAL BENCHMARK (One by one) ---
+  const runVisualBenchmark = async () => {
     if (isBenchmarking) return;
     setIsBenchmarking(true);
     const algos: AlgorithmType[] = ['bubble', 'quick', 'merge'];
-    const results: HistoryItem[] = [];
     const benchmarkData = [...array];
 
     for (const algo of algos) {
@@ -95,16 +115,44 @@ export default function SortingPage() {
       const startTime = performance.now();
       const { gen } = getAlgoData(algo, benchmarkData);
       await runSimulation(gen, (val) => playTone(val));
-      results.push({
-        id: Date.now() + Math.random(),
-        algorithm: algo,
-        size: arraySize,
-        time: Math.round(performance.now() - startTime),
-      });
-      await new Promise((r) => setTimeout(r, 500));
+
+      setHistory((prev) =>
+        [
+          {
+            id: Date.now() + Math.random(),
+            algorithm: algo,
+            size: arraySize,
+            time: Math.round(performance.now() - startTime),
+          },
+          ...prev,
+        ].slice(0, 10),
+      );
+      await new Promise((r) => setTimeout(r, 800));
     }
-    setHistory((prev) => [...results, ...prev].slice(0, 10));
     setIsBenchmarking(false);
+  };
+
+  // --- MODE 2: QUICK WARP (Instant) ---
+  const runQuickBenchmark = async () => {
+    const algos: AlgorithmType[] = ['bubble', 'quick', 'merge'];
+    const results: BenchmarkResult[] = [];
+
+    for (const algo of algos) {
+      const benchmarkData = [...array];
+      const startTime = performance.now();
+      const { gen, complexity } = getAlgoData(algo, benchmarkData);
+
+      // Exhaust the generator instantly without delays
+      let res = await gen.next();
+      while (!res.done) {
+        res = await gen.next();
+      }
+
+      const duration = (performance.now() - startTime).toFixed(2);
+      results.push({ name: algo.toUpperCase(), time: duration, complexity });
+    }
+    setQuickResults(results);
+    setShowQuickReport(true);
   };
 
   if (!isClient) return null;
@@ -113,7 +161,7 @@ export default function SortingPage() {
     <main className="flex flex-col lg:flex-row min-h-screen bg-slate-950 text-slate-100">
       <aside className="w-full lg:w-[420px] bg-slate-900 border-r border-slate-800 p-6 flex flex-col gap-6 overflow-y-auto max-h-screen custom-scrollbar">
         <header>
-          <h1 className="text-2xl font-black bg-gradient-to-br from-cyan-400 to-blue-600 bg-clip-text text-transparent">
+          <h1 className="text-2xl font-black bg-gradient-to-br from-cyan-400 to-blue-600 bg-clip-text text-transparent italic">
             ALGO PULSE
           </h1>
           <p className="text-[10px] font-mono text-slate-500 uppercase tracking-widest mt-1">
@@ -152,6 +200,11 @@ export default function SortingPage() {
             Telemetry Log
           </h2>
           <div className="space-y-2">
+            {history.length === 0 && (
+              <p className="text-[10px] text-slate-600 italic">
+                Waiting for execution data...
+              </p>
+            )}
             {history.map((item) => (
               <div
                 key={item.id}
@@ -172,7 +225,13 @@ export default function SortingPage() {
         </section>
       </aside>
 
-      <section className="flex-1 p-6 lg:p-10 flex flex-col gap-6">
+      <section className="flex-1 p-6 lg:p-10 flex flex-col gap-6 relative">
+        {isBenchmarking && (
+          <div className="absolute top-4 left-1/2 -translate-x-1/2 z-50 bg-indigo-600 px-6 py-2 rounded-full font-bold animate-pulse shadow-2xl text-xs">
+            AUTO-RUN: {algorithm.toUpperCase()} SORT
+          </div>
+        )}
+
         <div className="bg-slate-900/40 p-6 rounded-2xl border border-slate-800/50 flex flex-col md:flex-row gap-4 items-center">
           <ControlPanel
             size={arraySize}
@@ -193,16 +252,23 @@ export default function SortingPage() {
             <button
               onClick={shuffleData}
               disabled={!isPaused || isBenchmarking}
-              className="px-4 h-12 rounded-xl border border-slate-700 uppercase text-[9px] font-bold hover:bg-slate-800 transition-colors"
+              className="px-4 h-12 rounded-xl border border-slate-700 uppercase text-[9px] font-bold hover:bg-slate-800"
             >
               Shuffle
             </button>
             <button
-              onClick={runBenchmark}
+              onClick={runQuickBenchmark}
               disabled={!isPaused || isBenchmarking}
-              className="px-4 h-12 rounded-xl border border-cyan-800 text-cyan-400 uppercase text-[9px] font-bold hover:bg-cyan-950 transition-colors"
+              className="px-4 h-12 rounded-xl border border-indigo-500 text-indigo-400 uppercase text-[9px] font-bold hover:bg-indigo-950"
             >
-              Benchmark
+              Quick
+            </button>
+            <button
+              onClick={runVisualBenchmark}
+              disabled={!isPaused || isBenchmarking}
+              className="px-4 h-12 rounded-xl border border-cyan-800 text-cyan-400 uppercase text-[9px] font-bold hover:bg-cyan-950"
+            >
+              Visual Run
             </button>
             <button
               onClick={handleStart}
@@ -229,10 +295,9 @@ export default function SortingPage() {
         </div>
 
         <div className="relative flex-1 min-h-[400px] w-full bg-slate-950 rounded-3xl border border-slate-800/50 flex items-end justify-center px-4 pb-2 gap-[2px] overflow-hidden">
-          <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_120%,#1e293b,transparent)] opacity-30" />
           {array.map((val, idx) => (
             <VisualizerBar
-              key={`${idx}-${val}`} // Key helps Framer Motion track identity for layout animations
+              key={`${idx}-${val}`}
               val={val}
               status={comparing.includes(idx) ? 'swapping' : 'idle'}
               maxVal={100}
@@ -240,9 +305,48 @@ export default function SortingPage() {
           ))}
         </div>
       </section>
+
+      {/* Quick Report Modal */}
+      {showQuickReport && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-slate-950/90 backdrop-blur-md p-4">
+          <div className="bg-slate-900 border border-slate-700 w-full max-w-xl rounded-3xl p-8 shadow-2xl animate-in zoom-in-95 duration-200">
+            <h2 className="text-xl font-black text-white italic mb-6">
+              WARP SPEED RESULTS (N={arraySize})
+            </h2>
+            <div className="space-y-3">
+              {quickResults.map((res) => (
+                <div
+                  key={res.name}
+                  className="flex items-center justify-between p-4 bg-slate-950 rounded-xl border border-slate-800"
+                >
+                  <div>
+                    <div className="text-cyan-400 font-bold text-sm">
+                      {res.name}
+                    </div>
+                    <div className="text-[10px] text-slate-500 font-mono uppercase">
+                      {res.complexity}
+                    </div>
+                  </div>
+                  <div className="text-xl font-mono text-white">
+                    {res.time}ms
+                  </div>
+                </div>
+              ))}
+            </div>
+            <button
+              onClick={() => setShowQuickReport(false)}
+              className="w-full mt-6 py-4 bg-slate-800 hover:bg-slate-700 rounded-xl font-bold uppercase text-xs transition-colors"
+            >
+              Dismiss Report
+            </button>
+          </div>
+        </div>
+      )}
     </main>
   );
 }
+
+// ... Keep ComplexityLegend and StatCard functions as they were
 
 function ComplexityLegend({ currentAlgo }: { currentAlgo: AlgorithmType }) {
   const details = {

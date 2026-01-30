@@ -12,7 +12,7 @@ import {
   binarySearchCode,
   jumpSearch,
   jumpSearchCode,
-} from '@/algorithms/searchAlgorithms';
+} from '@/algorithms/searchingAlgorithms';
 
 type SearchAlgo = 'linear' | 'binary' | 'jump';
 
@@ -24,6 +24,12 @@ interface HistoryItem {
   found: boolean;
 }
 
+interface BenchmarkResult {
+  name: string;
+  time: string;
+  complexity: string;
+}
+
 export default function SearchingPage() {
   const [arraySize, setArraySize] = useState(30);
   const [target, setTarget] = useState<number>(0);
@@ -31,6 +37,8 @@ export default function SearchingPage() {
   const [history, setHistory] = useState<HistoryItem[]>([]);
   const [isClient, setIsClient] = useState(false);
   const [isBenchmarking, setIsBenchmarking] = useState(false);
+  const [showQuickReport, setShowQuickReport] = useState(false);
+  const [quickResults, setQuickResults] = useState<BenchmarkResult[]>([]);
   const [foundIndex, setFoundIndex] = useState<number | null>(null);
   const [searchRange, setSearchRange] = useState<[number, number] | null>(null);
   const hasInitialized = useRef(false);
@@ -68,16 +76,19 @@ export default function SearchingPage() {
           return {
             gen: binarySearch(currentArray, currentTarget),
             code: binarySearchCode,
+            complexity: 'O(log n)',
           };
         case 'jump':
           return {
             gen: jumpSearch(currentArray, currentTarget),
             code: jumpSearchCode,
+            complexity: 'O(√n)',
           };
         default:
           return {
             gen: linearSearch(currentArray, currentTarget),
             code: linearSearchCode,
+            complexity: 'O(n)',
           };
       }
     },
@@ -110,15 +121,15 @@ export default function SearchingPage() {
           found: foundIndex !== null,
         },
         ...prev,
-      ].slice(0, 5),
+      ].slice(0, 10),
     );
   };
 
-  const runBenchmark = async () => {
+  // --- MODE 1: VISUAL BENCHMARK ---
+  const runVisualBenchmark = async () => {
     if (isBenchmarking) return;
     setIsBenchmarking(true);
     const algos: SearchAlgo[] = ['linear', 'jump', 'binary'];
-    const results: HistoryItem[] = [];
 
     for (const algo of algos) {
       setAlgorithm(algo);
@@ -127,18 +138,52 @@ export default function SearchingPage() {
       await new Promise((r) => setTimeout(r, 100));
       const startTime = performance.now();
       const { gen } = getAlgoData(algo, array, target);
-      await runSimulation(gen, (val) => playTone(val));
-      results.push({
-        id: Date.now() + Math.random(),
-        algorithm: algo,
-        size: arraySize,
-        time: Math.round(performance.now() - startTime),
-        found: true,
-      });
-      await new Promise((r) => setTimeout(r, 500));
+
+      async function* wrapped() {
+        for await (const step of gen) {
+          if (step.found !== undefined) setFoundIndex(step.found);
+          if (step.range) setSearchRange(step.range);
+          yield step;
+        }
+      }
+
+      await runSimulation(wrapped(), (val) => playTone(val));
+      setHistory((prev) =>
+        [
+          {
+            id: Date.now() + Math.random(),
+            algorithm: algo,
+            size: arraySize,
+            time: Math.round(performance.now() - startTime),
+            found: true,
+          },
+          ...prev,
+        ].slice(0, 10),
+      );
+      await new Promise((r) => setTimeout(r, 800));
     }
-    setHistory((prev) => [...results, ...prev].slice(0, 10));
     setIsBenchmarking(false);
+  };
+
+  // --- MODE 2: QUICK WARP ---
+  const runQuickBenchmark = async () => {
+    const algos: SearchAlgo[] = ['linear', 'jump', 'binary'];
+    const results: BenchmarkResult[] = [];
+
+    for (const algo of algos) {
+      const startTime = performance.now();
+      const { gen, complexity } = getAlgoData(algo, array, target);
+
+      let res = await gen.next();
+      while (!res.done) {
+        res = await gen.next();
+      }
+
+      const duration = (performance.now() - startTime).toFixed(3);
+      results.push({ name: algo.toUpperCase(), time: duration, complexity });
+    }
+    setQuickResults(results);
+    setShowQuickReport(true);
   };
 
   if (!isClient) return null;
@@ -147,7 +192,7 @@ export default function SearchingPage() {
     <main className="flex flex-col lg:flex-row min-h-screen bg-slate-950 text-slate-100">
       <aside className="w-full lg:w-[420px] bg-slate-900 border-r border-slate-800 p-6 flex flex-col gap-6 overflow-y-auto max-h-screen custom-scrollbar">
         <header>
-          <h1 className="text-2xl font-black bg-gradient-to-br from-cyan-400 to-blue-600 bg-clip-text text-transparent">
+          <h1 className="text-2xl font-black bg-gradient-to-br from-cyan-400 to-blue-600 bg-clip-text text-transparent italic">
             SEARCH PULSE
           </h1>
           <p className="text-[10px] font-mono text-slate-500 uppercase tracking-widest mt-1">
@@ -178,13 +223,7 @@ export default function SearchingPage() {
             </div>
           </div>
           <CodeViewer
-            code={
-              algorithm === 'binary'
-                ? binarySearchCode
-                : algorithm === 'jump'
-                  ? jumpSearchCode
-                  : linearSearchCode
-            }
+            code={getAlgoData(algorithm, array, target).code}
             activeLine={activeLine}
           />
         </section>
@@ -216,7 +255,13 @@ export default function SearchingPage() {
         </section>
       </aside>
 
-      <section className="flex-1 p-6 lg:p-10 flex flex-col gap-6">
+      <section className="flex-1 p-6 lg:p-10 flex flex-col gap-6 relative">
+        {isBenchmarking && (
+          <div className="absolute top-4 left-1/2 -translate-x-1/2 z-50 bg-indigo-600 px-6 py-2 rounded-full font-bold animate-pulse shadow-2xl text-xs">
+            SCANNING: {algorithm.toUpperCase()}
+          </div>
+        )}
+
         <div className="bg-slate-900/40 p-6 rounded-2xl border border-slate-800/50 flex flex-col md:flex-row gap-4 items-center">
           <div className="flex flex-col w-full md:w-32 p-3 bg-slate-950 rounded-xl border border-slate-800">
             <label className="text-[9px] font-mono text-slate-500 uppercase mb-1">
@@ -255,18 +300,25 @@ export default function SearchingPage() {
               Shuffle
             </button>
             <button
-              onClick={runBenchmark}
+              onClick={runQuickBenchmark}
               disabled={!isPaused || isBenchmarking}
-              className="px-4 h-12 rounded-xl border border-cyan-800 text-cyan-400 uppercase text-[9px] font-bold hover:bg-cyan-950 transition-colors"
+              className="px-4 h-12 rounded-xl border border-indigo-500 text-indigo-400 uppercase text-[9px] font-bold hover:bg-indigo-950"
             >
-              Benchmark
+              Quick
+            </button>
+            <button
+              onClick={runVisualBenchmark}
+              disabled={!isPaused || isBenchmarking}
+              className="px-4 h-12 rounded-xl border border-cyan-800 text-cyan-400 uppercase text-[9px] font-bold hover:bg-cyan-950"
+            >
+              Visual Run
             </button>
             <button
               onClick={handleStart}
               disabled={!isPaused || isBenchmarking}
-              className="flex-1 px-8 h-12 rounded-xl bg-cyan-500 text-slate-950 font-bold uppercase text-[10px] shadow-lg shadow-cyan-900/20 transition-all"
+              className="flex-1 px-8 h-12 rounded-xl bg-cyan-500 text-slate-950 font-bold uppercase text-[10px] shadow-lg shadow-cyan-900/20 active:scale-95 transition-all"
             >
-              {isPaused ? 'Search' : 'Scanning...'}
+              {isPaused ? 'Execute' : 'Scanning...'}
             </button>
           </div>
         </div>
@@ -289,14 +341,12 @@ export default function SearchingPage() {
         </div>
 
         <div className="relative flex-1 min-h-[400px] w-full bg-slate-950 rounded-3xl border border-slate-800/50 flex items-end justify-center px-4 pb-2 gap-[2px] overflow-hidden">
-          <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_120%,#1e293b,transparent)] opacity-30" />
           {array.map((val, idx) => {
             const isOutOfRange =
               searchRange && (idx < searchRange[0] || idx > searchRange[1]);
             let status: 'idle' | 'comparing' | 'swapping' | 'found' = 'idle';
             if (foundIndex === idx) status = 'found';
             else if (comparing.includes(idx)) status = 'comparing';
-            else if (isOutOfRange) status = 'idle'; // Component handles opacity via isOutOfRange if we wanted, but let's keep it simple
 
             return (
               <VisualizerBar
@@ -304,14 +354,57 @@ export default function SearchingPage() {
                 val={val}
                 status={status}
                 maxVal={100}
+                className={
+                  isOutOfRange
+                    ? 'opacity-20 transition-opacity duration-300'
+                    : 'opacity-100'
+                }
               />
             );
           })}
         </div>
       </section>
+
+      {/* Quick Report Modal */}
+      {showQuickReport && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-slate-950/90 backdrop-blur-md p-4">
+          <div className="bg-slate-900 border border-slate-700 w-full max-w-xl rounded-3xl p-8 shadow-2xl animate-in zoom-in-95 duration-200">
+            <h2 className="text-xl font-black text-white italic mb-6">
+              SEARCH SPEED ANALYSIS (N={arraySize})
+            </h2>
+            <div className="space-y-3">
+              {quickResults.map((res) => (
+                <div
+                  key={res.name}
+                  className="flex items-center justify-between p-4 bg-slate-950 rounded-xl border border-slate-800"
+                >
+                  <div>
+                    <div className="text-cyan-400 font-bold text-sm">
+                      {res.name} SEARCH
+                    </div>
+                    <div className="text-[10px] text-slate-500 font-mono uppercase">
+                      {res.complexity}
+                    </div>
+                  </div>
+                  <div className="text-xl font-mono text-white">
+                    {res.time}ms
+                  </div>
+                </div>
+              ))}
+            </div>
+            <button
+              onClick={() => setShowQuickReport(false)}
+              className="w-full mt-6 py-4 bg-slate-800 hover:bg-slate-700 rounded-xl font-bold uppercase text-xs transition-colors"
+            >
+              Dismiss Report
+            </button>
+          </div>
+        </div>
+      )}
     </main>
   );
 }
+
 
 function ComplexityLegend({ currentAlgo }: { currentAlgo: SearchAlgo }) {
   const details = {
