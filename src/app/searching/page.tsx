@@ -271,6 +271,7 @@ export default function SearchingPage() {
 
           <ControlPanel
             size={arraySize}
+            sizeShower={true}
             speed={speed}
             isPaused={isPaused && !isBenchmarking}
             onSizeChange={(n) => {

@@ -137,7 +137,8 @@ export default function PathfindingPage() {
   const [isPanning, setIsPanning] = useState(false);
   const startPanRef = useRef({ x: 0, y: 0 });
 
-  const [dimensions] = useState({ rows: 15, cols: 30 });
+  // FIX: dimensions is now stateful to allow updates from ControlPanel
+  const [dimensions, setDimensions] = useState({ rows: 15, cols: 30 });
   const [grid, setGrid] = useState<Node[][]>([]);
   const [treeData, setTreeData] = useState<TreeNode | null>(null);
   const [algoType, setAlgoType] = useState<AlgoMode>('Dijkstra');
@@ -155,8 +156,16 @@ export default function PathfindingPage() {
   const [currentStats, setCurrentStats] = useState({ explored: 0, path: 0 });
   const [activeTreeNode, setActiveTreeNode] = useState<number | null>(null);
   const [visitedTreeNodes, setVisitedTreeNodes] = useState<number[]>([]);
-  const [startPos] = useState({ row: 7, col: 5 });
-  const [endPos] = useState({ row: 7, col: 25 });
+
+  // Start/End positions are now derived or adjusted based on dimensions
+  const startPos = {
+    row: Math.floor(dimensions.rows / 2),
+    col: Math.floor(dimensions.cols * 0.2),
+  };
+  const endPos = {
+    row: Math.floor(dimensions.rows / 2),
+    col: Math.floor(dimensions.cols * 0.8),
+  };
 
   const { runSimulation, isPaused, activeLine, speed, setSpeed } = useAlgorithm(
     [],
@@ -179,7 +188,7 @@ export default function PathfindingPage() {
       ),
     );
     setSpeed(10);
-  }, [initGrid, setSpeed, dimensions]);
+  }, [initGrid, dimensions, setSpeed]); // Added dimensions as dependency
 
   // Pan Handlers
   const handleMouseDown = (e: React.MouseEvent) => {
@@ -251,6 +260,7 @@ export default function PathfindingPage() {
     if (!isPaused || viewMode !== 'Grid' || isStartOrEnd(row, col)) return;
     setGrid((prev) => {
       const newGrid = prev.map((r) => [...r]);
+      if (!newGrid[row] || !newGrid[row][col]) return prev;
       const target = newGrid[row][col];
       if (brush === 'Wall')
         newGrid[row][col] = { ...target, isWall: !target.isWall, isMud: false };
@@ -686,18 +696,22 @@ export default function PathfindingPage() {
 
       <section className="flex-1 p-6 flex flex-col gap-6 relative">
         <div className="flex justify-between items-center">
+          {/* FIX: onSizeChange now updates state, which triggers grid re-init */}
           <ControlPanel
-            size={30}
+            size={dimensions.cols}
+            sizeShower={viewMode === 'Grid'}
             speed={speed}
             isPaused={isPaused}
             onSpeedChange={setSpeed}
-            onSizeChange={() => {}}
+            onSizeChange={(val) =>
+              setDimensions({ rows: Math.floor(val / 2), cols: val })
+            }
           />
           <div className="flex gap-2">
             {viewMode === 'Grid' ? (
               <>
                 <button
-                  onClick={() => initGrid(15, 30)}
+                  onClick={() => initGrid(dimensions.rows, dimensions.cols)}
                   className="px-4 py-2 bg-slate-800 hover:bg-rose-900/40 border border-slate-700 rounded-xl text-[10px] font-bold uppercase text-rose-400 transition-colors"
                 >
                   Clear Board
@@ -730,7 +744,9 @@ export default function PathfindingPage() {
           {viewMode === 'Grid' ? (
             <div
               className="grid gap-[1px] bg-slate-800 p-[1px] rounded-sm shrink-0"
-              style={{ gridTemplateColumns: `repeat(30, 18px)` }}
+              style={{
+                gridTemplateColumns: `repeat(${dimensions.cols}, 18px)`,
+              }}
             >
               {grid.map((row, rIdx) =>
                 row.map((node, cIdx) => (
@@ -746,7 +762,6 @@ export default function PathfindingPage() {
               )}
             </div>
           ) : (
-            /* FIX: Ensure the visualizer can move beyond viewport bounds */
             <div
               className="w-full h-full flex items-center justify-center overflow-visible select-none"
               style={{

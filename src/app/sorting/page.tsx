@@ -229,6 +229,7 @@ export default function SortingPage() {
         <div className="bg-slate-900/40 p-6 rounded-2xl border border-slate-800/50 flex flex-col md:flex-row gap-4 items-center">
           <ControlPanel
             size={arraySize}
+            sizeShower={true}
             speed={speed}
             isPaused={isPaused && !isBenchmarking}
             onSizeChange={(n) => {
