@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useAlgorithm } from '@/hooks/useAlgorithm';
 import { CodeViewer } from '@/components/CodeViewer';
 import { ControlPanel } from '@/components/ControlPanel';
@@ -27,31 +27,76 @@ import { NavHeader } from '@/components/NavHeader';
 import { TreeVisualizer } from '@/components/TreeVisualizer';
 
 // --- Tree Utility Logic ---
-const generateTreeFromValues = (values: number[]): TreeNode | null => {
+type TreeMode = 'BST' | 'Balanced' | 'Complete';
+
+const bstInsert = (node: TreeNode | null, val: number): TreeNode => {
+  if (!node) return { value: val, left: null, right: null, x: 0, y: 0 };
+  if (val < node.value) node.left = bstInsert(node.left, val);
+  else if (val > node.value) node.right = bstInsert(node.right, val);
+  return node;
+};
+
+const bstRemove = (node: TreeNode | null, val: number): TreeNode | null => {
+  if (!node) return null;
+  if (val < node.value) node.left = bstRemove(node.left, val);
+  else if (val > node.value) node.right = bstRemove(node.right, val);
+  else {
+    if (!node.left) return node.right;
+    if (!node.right) return node.left;
+    let minNode = node.right;
+    while (minNode.left) minNode = minNode.left;
+    node.value = minNode.value;
+    node.right = bstRemove(node.right, minNode.value);
+  }
+  return node;
+};
+
+const assignPositions = (
+  node: TreeNode | null,
+  x: number,
+  y: number,
+  offset: number,
+) => {
+  if (!node) return;
+  node.x = x;
+  node.y = y;
+  if (node.left) assignPositions(node.left, x - offset, y + 70, offset / 1.7);
+  if (node.right) assignPositions(node.right, x + offset, y + 70, offset / 1.7);
+};
+
+const buildBalanced = (
+  values: number[],
+  start: number,
+  end: number,
+): TreeNode | null => {
+  if (start > end) return null;
+  const mid = Math.floor((start + end) / 2);
+  const node: TreeNode = {
+    value: values[mid],
+    left: null,
+    right: null,
+    x: 0,
+    y: 0,
+  };
+  node.left = buildBalanced(values, start, mid - 1);
+  node.right = buildBalanced(values, mid + 1, end);
+  return node;
+};
+
+const generateTreeFromValues = (
+  values: number[],
+  mode: TreeMode = 'BST',
+): TreeNode | null => {
   let root: TreeNode | null = null;
-  const bstInsert = (node: TreeNode | null, val: number): TreeNode => {
-    if (!node) return { value: val, left: null, right: null, x: 0, y: 0 };
-    if (val < node.value) node.left = bstInsert(node.left, val);
-    else if (val > node.value) node.right = bstInsert(node.right, val);
-    return node;
-  };
-  values.forEach((v) => {
-    root = bstInsert(root, v);
-  });
-  const assignPositions = (
-    node: TreeNode | null,
-    x: number,
-    y: number,
-    offset: number,
-  ) => {
-    if (!node) return;
-    node.x = x;
-    node.y = y;
-    if (node.left) assignPositions(node.left, x - offset, y + 65, offset / 1.8);
-    if (node.right)
-      assignPositions(node.right, x + offset, y + 65, offset / 1.8);
-  };
-  assignPositions(root, 400, 45, 200);
+  if (mode === 'BST' || mode === 'Complete') {
+    values.forEach((v) => {
+      root = bstInsert(root, v);
+    });
+  } else {
+    const sorted = [...values].sort((a, b) => a - b);
+    root = buildBalanced(sorted, 0, sorted.length - 1);
+  }
+  assignPositions(root, 600, 50, 250);
   return root;
 };
 
@@ -86,12 +131,19 @@ interface BenchmarkResult {
 
 export default function PathfindingPage() {
   const [viewMode, setViewMode] = useState<ViewMode>('Grid');
+  const [treeMode, setTreeMode] = useState<TreeMode>('BST');
+  const [zoom, setZoom] = useState(1);
+  const [pan, setPan] = useState({ x: 0, y: 0 });
+  const [isPanning, setIsPanning] = useState(false);
+  const startPanRef = useRef({ x: 0, y: 0 });
+
   const [dimensions] = useState({ rows: 15, cols: 30 });
   const [grid, setGrid] = useState<Node[][]>([]);
   const [treeData, setTreeData] = useState<TreeNode | null>(null);
   const [algoType, setAlgoType] = useState<AlgoMode>('Dijkstra');
   const [heuristic, setHeuristic] = useState<HeuristicType>('Manhattan');
   const [treeTarget, setTreeTarget] = useState<string>('');
+  const [nodeInput, setNodeInput] = useState<string>('');
   const [brush, setBrush] = useState<'Wall' | 'Mud'>('Wall');
   const [isMousePressed, setIsMousePressed] = useState(false);
   const [isClient, setIsClient] = useState(false);
@@ -121,10 +173,42 @@ export default function PathfindingPage() {
     setIsClient(true);
     initGrid(dimensions.rows, dimensions.cols);
     setTreeData(
-      generateTreeFromValues([50, 30, 70, 20, 40, 60, 80, 15, 25, 35, 45]),
+      generateTreeFromValues(
+        [50, 30, 70, 20, 40, 60, 80, 15, 25, 35, 45],
+        'BST',
+      ),
     );
     setSpeed(10);
   }, [initGrid, setSpeed, dimensions]);
+
+  // Pan Handlers
+  const handleMouseDown = (e: React.MouseEvent) => {
+    setIsMousePressed(true);
+    if (viewMode === 'Tree') {
+      setIsPanning(true);
+      startPanRef.current = { x: e.clientX - pan.x, y: e.clientY - pan.y };
+    }
+  };
+
+  const handleMouseMove = (e: React.MouseEvent) => {
+    if (!isMousePressed) return;
+    if (viewMode === 'Tree' && isPanning) {
+      setPan({
+        x: e.clientX - startPanRef.current.x,
+        y: e.clientY - startPanRef.current.y,
+      });
+    }
+  };
+
+  const handleMouseUp = () => {
+    setIsMousePressed(false);
+    setIsPanning(false);
+  };
+
+  const resetView = () => {
+    setZoom(1);
+    setPan({ x: 0, y: 0 });
+  };
 
   const isStartOrEnd = (r: number, c: number) =>
     (r === startPos.row && c === startPos.col) ||
@@ -188,6 +272,39 @@ export default function PathfindingPage() {
       })),
     );
     setGrid(newGrid);
+  };
+
+  const handleAddNode = () => {
+    const val = parseInt(nodeInput);
+    if (isNaN(val)) return;
+    setTreeData((prev) => {
+      const root = bstInsert(prev, val);
+      assignPositions(root, 600, 50, 250);
+      return { ...root };
+    });
+    setNodeInput('');
+  };
+
+  const handleRemoveNode = () => {
+    const val = parseInt(nodeInput);
+    if (isNaN(val)) return;
+    setTreeData((prev) => {
+      const root = bstRemove(prev, val);
+      if (root) assignPositions(root, 600, 50, 250);
+      return root ? { ...root } : null;
+    });
+    setNodeInput('');
+  };
+
+  const randomizeTree = (mode: TreeMode = treeMode) => {
+    const count = 12 + Math.floor(Math.random() * 5);
+    const vals = Array.from(
+      { length: count },
+      () => Math.floor(Math.random() * 99) + 1,
+    );
+    setTreeData(generateTreeFromValues(Array.from(new Set(vals)), mode));
+    setVisitedTreeNodes([]);
+    setActiveTreeNode(null);
   };
 
   const runQuickBenchmark = async () => {
@@ -315,6 +432,7 @@ export default function PathfindingPage() {
               onClick={() => {
                 setViewMode(v);
                 setAlgoType(v === 'Grid' ? 'Dijkstra' : 'In-Order');
+                resetView();
               }}
               className={`flex-1 py-2 text-[10px] font-bold rounded-lg transition-all ${viewMode === v ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-500/20' : 'text-slate-500 hover:text-slate-300'}`}
             >
@@ -344,7 +462,6 @@ export default function PathfindingPage() {
                 </button>
               </div>
             </div>
-
             {(algoType === 'A*' || algoType === 'Greedy') && (
               <div className="space-y-2 animate-in slide-in-from-top-2">
                 <p className="text-[10px] font-bold text-cyan-400 uppercase tracking-widest">
@@ -362,7 +479,6 @@ export default function PathfindingPage() {
                 </select>
               </div>
             )}
-
             <button
               onClick={generateMaze}
               className="w-full py-3 bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded-xl text-[10px] font-bold uppercase tracking-widest transition-colors"
@@ -371,17 +487,95 @@ export default function PathfindingPage() {
             </button>
           </div>
         ) : (
-          <div className="space-y-2 animate-in slide-in-from-top-2">
-            <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">
-              Search Target
-            </p>
-            <input
-              type="number"
-              placeholder="Value (e.g. 45)"
-              value={treeTarget}
-              onChange={(e) => setTreeTarget(e.target.value)}
-              className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2 text-sm text-cyan-400 focus:outline-none focus:border-cyan-500"
-            />
+          <div className="space-y-4 animate-in fade-in duration-500">
+            <div className="space-y-2">
+              <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">
+                Tree Structure
+              </p>
+              <div className="grid grid-cols-3 gap-1 bg-slate-950 p-1 rounded-xl border border-slate-800">
+                {(['BST', 'Balanced', 'Complete'] as TreeMode[]).map((m) => (
+                  <button
+                    key={m}
+                    onClick={() => {
+                      setTreeMode(m);
+                      randomizeTree(m);
+                    }}
+                    className={`py-2 text-[9px] font-bold rounded-lg transition-all ${treeMode === m ? 'bg-indigo-500 text-white' : 'text-slate-500 hover:text-slate-300'}`}
+                  >
+                    {m}
+                  </button>
+                ))}
+              </div>
+            </div>
+            <div className="space-y-2">
+              <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">
+                View Controls
+              </p>
+              <div className="flex gap-1 bg-slate-950 p-1 rounded-xl border border-slate-800">
+                <button
+                  onClick={() => setZoom((prev) => Math.max(0.5, prev - 0.1))}
+                  className="flex-1 py-2 text-[10px] font-bold rounded-lg text-slate-400 hover:bg-slate-900 hover:text-white transition-all"
+                >
+                  OUT
+                </button>
+                <button
+                  onClick={resetView}
+                  className="flex-1 py-2 text-[10px] font-bold rounded-lg bg-slate-800 text-white transition-all"
+                >
+                  {Math.round(zoom * 100)}%
+                </button>
+                <button
+                  onClick={() => setZoom((prev) => Math.min(2, prev + 0.1))}
+                  className="flex-1 py-2 text-[10px] font-bold rounded-lg text-slate-400 hover:bg-slate-900 hover:text-white transition-all"
+                >
+                  IN
+                </button>
+              </div>
+            </div>
+            <div className="space-y-2">
+              <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">
+                Search Target
+              </p>
+              <input
+                type="number"
+                placeholder="Value (e.g. 45)"
+                value={treeTarget}
+                onChange={(e) => setTreeTarget(e.target.value)}
+                className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2 text-sm text-cyan-400 focus:outline-none focus:border-cyan-500"
+              />
+            </div>
+            <div className="space-y-2">
+              <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">
+                Node Management
+              </p>
+              <div className="flex gap-2">
+                <input
+                  type="number"
+                  placeholder="Value"
+                  value={nodeInput}
+                  onChange={(e) => setNodeInput(e.target.value)}
+                  className="flex-1 bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:border-indigo-500"
+                />
+                <button
+                  onClick={handleAddNode}
+                  className="px-3 bg-indigo-600 rounded-xl text-[10px] font-bold hover:bg-indigo-500"
+                >
+                  +
+                </button>
+                <button
+                  onClick={handleRemoveNode}
+                  className="px-3 bg-rose-600 rounded-xl text-[10px] font-bold hover:bg-rose-500"
+                >
+                  -
+                </button>
+              </div>
+            </div>
+            <button
+              onClick={() => randomizeTree()}
+              className="w-full py-3 bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded-xl text-[10px] font-bold uppercase tracking-widest transition-colors"
+            >
+              Randomize Tree
+            </button>
           </div>
         )}
 
@@ -423,16 +617,6 @@ export default function PathfindingPage() {
               </p>
             </div>
           </div>
-          {(algoType === 'A*' || algoType === 'Greedy') && (
-            <div className="border-t border-indigo-500/10 pt-2 text-center">
-              <span className="text-[9px] text-slate-500 uppercase">
-                Heuristic:{' '}
-              </span>
-              <span className="text-[9px] font-bold text-indigo-300 uppercase">
-                {heuristic}
-              </span>
-            </div>
-          )}
         </div>
 
         <div className="space-y-2">
@@ -509,32 +693,43 @@ export default function PathfindingPage() {
             onSpeedChange={setSpeed}
             onSizeChange={() => {}}
           />
-          {viewMode === 'Grid' && (
-            <div className="flex gap-2">
+          <div className="flex gap-2">
+            {viewMode === 'Grid' ? (
+              <>
+                <button
+                  onClick={() => initGrid(15, 30)}
+                  className="px-4 py-2 bg-slate-800 hover:bg-rose-900/40 border border-slate-700 rounded-xl text-[10px] font-bold uppercase text-rose-400 transition-colors"
+                >
+                  Clear Board
+                </button>
+                <button
+                  onClick={runQuickBenchmark}
+                  className="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 rounded-xl text-[10px] font-bold uppercase shadow-lg shadow-indigo-500/20 transition-all"
+                >
+                  Benchmark
+                </button>
+              </>
+            ) : (
               <button
-                onClick={() => initGrid(15, 30)}
+                onClick={() => setTreeData(null)}
                 className="px-4 py-2 bg-slate-800 hover:bg-rose-900/40 border border-slate-700 rounded-xl text-[10px] font-bold uppercase text-rose-400 transition-colors"
               >
-                Clear Board
+                Clear Tree
               </button>
-              <button
-                onClick={runQuickBenchmark}
-                className="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 rounded-xl text-[10px] font-bold uppercase shadow-lg shadow-indigo-500/20 transition-all"
-              >
-                Benchmark
-              </button>
-            </div>
-          )}
+            )}
+          </div>
         </div>
 
         <div
-          className="flex-1 bg-slate-950 border border-slate-800 rounded-3xl flex items-center justify-center overflow-hidden shadow-inner"
-          onMouseDown={() => setIsMousePressed(true)}
-          onMouseUp={() => setIsMousePressed(false)}
+          className={`flex-1 bg-slate-950 border border-slate-800 rounded-3xl flex items-center justify-center overflow-hidden shadow-inner relative ${viewMode === 'Tree' ? 'cursor-grab active:cursor-grabbing' : ''}`}
+          onMouseDown={handleMouseDown}
+          onMouseMove={handleMouseMove}
+          onMouseUp={handleMouseUp}
+          onMouseLeave={handleMouseUp}
         >
           {viewMode === 'Grid' ? (
             <div
-              className="grid gap-[1px] bg-slate-800 p-[1px] rounded-sm"
+              className="grid gap-[1px] bg-slate-800 p-[1px] rounded-sm shrink-0"
               style={{ gridTemplateColumns: `repeat(30, 18px)` }}
             >
               {grid.map((row, rIdx) =>
@@ -551,11 +746,22 @@ export default function PathfindingPage() {
               )}
             </div>
           ) : (
-            <TreeVisualizer
-              root={treeData}
-              activeNodeId={activeTreeNode}
-              visitedNodes={visitedTreeNodes}
-            />
+            /* FIX: Ensure the visualizer can move beyond viewport bounds */
+            <div
+              className="w-full h-full flex items-center justify-center overflow-visible select-none"
+              style={{
+                transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})`,
+                transition: isPanning ? 'none' : 'transform 0.1s ease-out',
+              }}
+            >
+              <div className="shrink-0">
+                <TreeVisualizer
+                  root={treeData}
+                  activeNodeId={activeTreeNode}
+                  visitedNodes={visitedTreeNodes}
+                />
+              </div>
+            </div>
           )}
         </div>
 

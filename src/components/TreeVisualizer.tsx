@@ -29,7 +29,7 @@ export const TreeVisualizer: React.FC<TreeVisualizerProps> = ({
             y1={node.y}
             x2={node.left.x}
             y2={node.left.y}
-            stroke="#1e293b"
+            stroke="#334155"
             strokeWidth="2"
           />
         )}
@@ -39,7 +39,7 @@ export const TreeVisualizer: React.FC<TreeVisualizerProps> = ({
             y1={node.y}
             x2={node.right.x}
             y2={node.right.y}
-            stroke="#1e293b"
+            stroke="#334155"
             strokeWidth="2"
           />
         )}
@@ -48,24 +48,25 @@ export const TreeVisualizer: React.FC<TreeVisualizerProps> = ({
         <circle
           cx={node.x}
           cy={node.y}
-          r="20"
-          className={`transition-colors duration-300 ${
+          r="22"
+          className={`transition-all duration-300 ${
             isActive
-              ? 'fill-cyan-400'
+              ? 'fill-cyan-400 filter drop-shadow-[0_0_8px_rgba(34,211,238,0.8)]'
               : isVisited
                 ? 'fill-indigo-600'
                 : 'fill-slate-800'
           }`}
-          stroke={isActive ? '#fff' : '#334155'}
+          stroke={isActive ? '#fff' : '#475569'}
           strokeWidth="2"
         />
         <text
           x={node.x}
           y={node.y + 5}
           textAnchor="middle"
-          fontSize="12"
+          fontSize="14"
           fontWeight="bold"
           fill="white"
+          className="pointer-events-none select-none"
         >
           {node.value}
         </text>
@@ -77,8 +78,12 @@ export const TreeVisualizer: React.FC<TreeVisualizerProps> = ({
   };
 
   return (
-    <div className="w-full h-[400px] bg-slate-950 rounded-3xl border border-slate-800 overflow-hidden">
-      <svg width="100%" height="100%" viewBox="0 0 800 400">
+    /* FIX: Removed overflow-hidden and fixed height/width. 
+       The SVG now uses overflow: visible so that nodes rendered outside 
+       the "0 0" origin are still visible when the user pans.
+    */
+    <div className="w-full h-full flex items-center justify-center">
+      <svg className="overflow-visible" style={{ width: '1px', height: '1px' }}>
         {renderNodes(root)}
       </svg>
     </div>
