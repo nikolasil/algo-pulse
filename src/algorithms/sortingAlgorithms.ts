@@ -2,7 +2,6 @@
 export const bubbleSortCode = `for (let i = 0; i < n; i++) {
   for (let j = 0; j < n - i - 1; j++) {
     if (array[j] > array[j + 1]) {
-      // Swap elements
       [arr[j], arr[j+1]] = [arr[j+1], arr[j]];
     }
   }
@@ -11,13 +10,13 @@ export const bubbleSortCode = `for (let i = 0; i < n; i++) {
 export async function* bubbleSort(array: number[]): AsyncGenerator<any> {
   const n = array.length;
   for (let i = 0; i < n; i++) {
-    yield { line: 1 };
+    yield { line: 1 }; // for (let i = 0; i < n; i++)
     for (let j = 0; j < n - i - 1; j++) {
-      yield { line: 2, comparing: [j, j + 1] };
+      yield { line: 2, comparing: [j, j + 1] }; // for (let j = 0; j < n - i - 1; j++)
       if (array[j] > array[j + 1]) {
-        yield { line: 3 };
+        yield { line: 3 }; // if (array[j] > array[j + 1])
         [array[j], array[j + 1]] = [array[j + 1], array[j]];
-        yield { line: 4, array: [...array] };
+        yield { line: 4, array: [...array] }; // swap
       }
     }
   }
@@ -36,13 +35,13 @@ export async function* quickSort(
   start: number = 0,
   end: number = array.length - 1,
 ): AsyncGenerator<any> {
-  yield { line: 1 };
+  yield { line: 2 }; // if (start >= end)
   if (start >= end) return;
 
-  yield { line: 2 };
+  // Partition logic (mapped to line 3)
+  yield { line: 3 };
   let pivotValue = array[end];
   let pivotIndex = start;
-
   for (let i = start; i < end; i++) {
     yield { comparing: [i, end] };
     if (array[i] < pivotValue) {
@@ -54,9 +53,10 @@ export async function* quickSort(
   [array[pivotIndex], array[end]] = [array[end], array[pivotIndex]];
   yield { array: [...array] };
 
-  yield { line: 3 };
+  yield { line: 4 }; // quickSort(arr, start, index - 1)
   yield* quickSort(array, start, pivotIndex - 1);
-  yield { line: 4 };
+
+  yield { line: 5 }; // quickSort(arr, index + 1, end)
   yield* quickSort(array, pivotIndex + 1, end);
 }
 
@@ -64,8 +64,8 @@ export async function* quickSort(
 export const mergeSortCode = `function mergeSort(arr) {
   if (arr.length <= 1) return arr;
   const mid = Math.floor(arr.length / 2);
-  const left = mergeSort(arr.slice(0, mid));
-  const right = mergeSort(arr.slice(mid));
+  mergeSort(left);
+  mergeSort(right);
   return merge(left, right);
 }`;
 
@@ -74,17 +74,19 @@ export async function* mergeSort(
   start: number = 0,
   end: number = array.length - 1,
 ): AsyncGenerator<any> {
-  if (start >= end) {
-    yield { line: 1 };
-    return;
-  }
+  yield { line: 2 }; // if (arr.length <= 1)
+  if (start >= end) return;
+
+  yield { line: 3 }; // const mid = Math.floor...
   const mid = Math.floor((start + end) / 2);
-  yield { line: 2 };
-  yield { line: 3 };
+
+  yield { line: 4 }; // mergeSort(left)
   yield* mergeSort(array, start, mid);
-  yield { line: 4 };
+
+  yield { line: 5 }; // mergeSort(right)
   yield* mergeSort(array, mid + 1, end);
-  yield { line: 5 };
+
+  yield { line: 6 }; // return merge(left, right)
   yield* merge(array, start, mid, end);
 }
 
@@ -94,6 +96,7 @@ async function* merge(arr: number[], start: number, mid: number, end: number) {
   let i = 0,
     j = 0,
     k = start;
+
   while (i < left.length && j < right.length) {
     yield { comparing: [start + i, mid + 1 + j] };
     if (left[i] <= right[j]) {
