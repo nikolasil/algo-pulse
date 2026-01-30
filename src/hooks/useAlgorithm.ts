@@ -1,7 +1,7 @@
 'use client';
-import { useState, useRef } from 'react';
+import { useState, useRef, useCallback } from 'react';
 
-export const useSorting = (initialArray: number[]) => {
+export const useAlgorithm = (initialArray: number[]) => {
   const [array, setArray] = useState<number[]>(initialArray);
   const [isPaused, setIsPaused] = useState(true);
   const [speed, setSpeed] = useState(50);
@@ -11,20 +11,44 @@ export const useSorting = (initialArray: number[]) => {
   const arrayRef = useRef(initialArray);
   const speedRef = useRef(speed);
 
-  const updateArray = (newArray: number[]) => {
+  const updateArray = useCallback((newArray: number[]) => {
     arrayRef.current = [...newArray];
     setArray([...newArray]);
-  };
+  }, []);
 
-  const handleSetSpeed = (val: number) => {
+  const handleSetSpeed = useCallback((val: number) => {
     setSpeed(val);
     speedRef.current = val;
-  };
+  }, []);
 
   const sleep = (ms?: number) =>
     new Promise((resolve) => setTimeout(resolve, ms ?? speedRef.current));
 
-  const shuffleData = async () => {
+  const runSimulation = useCallback(
+    async (
+      algoGenerator: AsyncGenerator<any>,
+      onStep?: (val: number) => void,
+    ) => {
+      setIsPaused(false);
+      for await (const step of algoGenerator) {
+        if (step.line !== undefined) setActiveLine(step.line);
+        if (step.array) updateArray(step.array);
+        if (step.comparing) {
+          setComparing(step.comparing);
+          if (onStep && step.comparing.length > 0) {
+            onStep(arrayRef.current[step.comparing[0]]);
+          }
+        }
+        await sleep();
+      }
+      setActiveLine(0);
+      setComparing([]);
+      setIsPaused(true);
+    },
+    [updateArray],
+  ); // Only changes if updateArray changes
+
+  const shuffleData = useCallback(async () => {
     setIsPaused(false);
     let shuffled = [...arrayRef.current];
     for (let i = shuffled.length - 1; i > 0; i--) {
@@ -37,39 +61,20 @@ export const useSorting = (initialArray: number[]) => {
     }
     updateArray(shuffled);
     setIsPaused(true);
-  };
-
-  const startSorting = async (
-    algoGenerator: AsyncGenerator<any>,
-    onStep?: (val: number) => void,
-  ) => {
-    setIsPaused(false);
-    for await (const step of algoGenerator) {
-      if (step.line !== undefined) setActiveLine(step.line);
-      if (step.array) updateArray(step.array);
-      if (step.comparing) {
-        setComparing(step.comparing);
-        if (onStep && step.comparing.length > 0) {
-          onStep(arrayRef.current[step.comparing[0]]);
-        }
-      }
-      await sleep();
-    }
-    setActiveLine(0);
-    setComparing([]);
-    setIsPaused(true);
-  };
+  }, [updateArray]);
 
   return {
     array,
     setArray: updateArray,
     comparing,
+    setComparing,
     activeLine,
+    setActiveLine,
     isPaused,
     setIsPaused,
     speed,
     setSpeed: handleSetSpeed,
-    startSorting,
+    runSimulation,
     shuffleData,
   };
 };

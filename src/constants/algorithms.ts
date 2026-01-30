@@ -26,7 +26,7 @@ export const ALGO_CATEGORIES = [
       'Efficiently locate specific data points within structured sets.',
     icon: '🔍',
     path: '/searching',
-    status: 'DEVELOPMENT',
-    algos: ['Binary Search', 'Linear Search'],
+    status: 'ACTIVE',
+    algos: ['Linear Search', 'Binary Search', 'Jump Search'],
   },
 ];
