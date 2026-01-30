@@ -27,6 +27,7 @@ export default function SortingPage() {
   const [algorithm, setAlgorithm] = useState<AlgorithmType>('bubble');
   const [history, setHistory] = useState<HistoryItem[]>([]);
   const [isClient, setIsClient] = useState(false);
+  const [isBenchmarking, setIsBenchmarking] = useState(false);
   const hasInitialized = useRef(false);
 
   const { playTone } = useAudio();
@@ -52,136 +53,127 @@ export default function SortingPage() {
     }
   }, [setArray]);
 
-  const getAlgoData = () => {
-    switch (algorithm) {
+  const getAlgoData = (type: AlgorithmType, currentArray: number[]) => {
+    switch (type) {
       case 'quick':
-        return { gen: quickSort([...array]), code: quickSortCode };
+        return { gen: quickSort([...currentArray]), code: quickSortCode };
       case 'merge':
-        return { gen: mergeSort([...array]), code: mergeSortCode };
+        return { gen: mergeSort([...currentArray]), code: mergeSortCode };
       default:
-        return { gen: bubbleSort(array), code: bubbleSortCode };
+        return { gen: bubbleSort([...currentArray]), code: bubbleSortCode };
     }
   };
 
   const handleStart = async () => {
     const startTime = performance.now();
-    const { gen } = getAlgoData();
-
+    const { gen } = getAlgoData(algorithm, array);
     await startSorting(gen, (val) => playTone(val));
-
     const duration = Math.round(performance.now() - startTime);
     setHistory((prev) =>
       [
-        {
-          id: Date.now(),
-          algorithm,
-          size: array.length,
-          time: duration,
-        },
+        { id: Date.now(), algorithm, size: array.length, time: duration },
         ...prev,
       ].slice(0, 5),
     );
+  };
+
+  const runBenchmark = async () => {
+    setIsBenchmarking(true);
+    const originalArray = [...array];
+    const algos: AlgorithmType[] = ['bubble', 'quick', 'merge'];
+    const results: HistoryItem[] = [];
+
+    for (const algo of algos) {
+      setAlgorithm(algo);
+      setArray([...originalArray]);
+      const startTime = performance.now();
+      const { gen } = getAlgoData(algo, originalArray);
+      await startSorting(gen, (val) => playTone(val));
+      results.push({
+        id: Date.now(),
+        algorithm: algo,
+        size: arraySize,
+        time: Math.round(performance.now() - startTime),
+      });
+      await new Promise((r) => setTimeout(r, 800));
+    }
+    setHistory((prev) => [...results, ...prev].slice(0, 10));
+    setIsBenchmarking(false);
   };
 
   if (!isClient) return null;
 
   return (
     <main className="flex flex-col lg:flex-row min-h-screen bg-slate-950 text-slate-100">
-      {/* LEFT SIDEBAR: Code & History */}
-      <aside className="w-full lg:w-[400px] bg-slate-900 border-r border-slate-800 p-6 flex flex-col gap-6 overflow-y-auto max-h-screen">
-        <div>
+      {/* SIDEBAR */}
+      <aside className="w-full lg:w-[420px] bg-slate-900 border-r border-slate-800 p-6 flex flex-col gap-6 overflow-y-auto max-h-screen custom-scrollbar">
+        <header>
           <h1 className="text-2xl font-black bg-gradient-to-br from-cyan-400 to-blue-600 bg-clip-text text-transparent">
             ALGO PULSE
           </h1>
           <p className="text-[10px] font-mono text-slate-500 uppercase tracking-widest mt-1">
-            v1.0.4 Terminal
+            Diagnostic Engine
           </p>
-        </div>
+        </header>
 
-        {/* Live Code Section */}
         <section>
           <div className="flex justify-between items-center mb-2">
             <h2 className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
-              Live Trace
+              Execution Trace
             </h2>
-            <div className="flex gap-2">
+            <div className="flex gap-1">
               {(['bubble', 'quick', 'merge'] as AlgorithmType[]).map((type) => (
                 <button
                   key={type}
                   onClick={() => setAlgorithm(type)}
-                  disabled={!isPaused}
-                  className={`px-2 py-0.5 rounded text-[9px] font-bold uppercase transition-colors ${
-                    algorithm === type
-                      ? 'bg-cyan-600 text-white'
-                      : 'bg-slate-800 text-slate-500 hover:text-slate-300'
-                  }`}
+                  disabled={!isPaused || isBenchmarking}
+                  className={`px-2 py-0.5 rounded text-[8px] font-bold uppercase transition-all ${algorithm === type ? 'bg-cyan-600' : 'bg-slate-800 text-slate-500'}`}
                 >
                   {type}
                 </button>
               ))}
             </div>
           </div>
-          <CodeViewer code={getAlgoData().code} activeLine={activeLine} />
+          <CodeViewer
+            code={getAlgoData(algorithm, array).code}
+            activeLine={activeLine}
+          />
         </section>
 
-        {/* History Section */}
+        <ComplexityLegend currentAlgo={algorithm} />
+
         <section className="flex-1">
           <h2 className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-3">
-            Run History
+            Telemetry Log
           </h2>
           <div className="space-y-2">
-            {history.length === 0 && (
-              <div className="p-4 rounded-xl border border-dashed border-slate-800 text-center">
-                <p className="text-[10px] font-mono text-slate-600 italic uppercase">
-                  No telemetry found
-                </p>
-              </div>
-            )}
             {history.map((item) => (
               <div
                 key={item.id}
-                className="p-3 rounded-xl bg-slate-950/50 border border-slate-800 flex justify-between items-center group hover:border-cyan-900 transition-colors"
+                className="p-3 rounded-xl bg-slate-950/50 border border-slate-800 flex justify-between items-center text-xs"
               >
                 <div>
-                  <div className="text-[10px] font-bold text-cyan-500 uppercase">
+                  <span className="font-bold text-cyan-500 uppercase">
                     {item.algorithm}
-                  </div>
-                  <div className="text-[9px] text-slate-500 font-mono">
-                    Size: {item.size}
-                  </div>
+                  </span>
+                  <span className="ml-2 text-slate-500 font-mono">
+                    N={item.size}
+                  </span>
                 </div>
-                <div className="text-right">
-                  <div className="text-sm font-mono text-slate-200">
-                    {item.time}ms
-                  </div>
-                </div>
+                <div className="font-mono text-slate-200">{item.time}ms</div>
               </div>
             ))}
           </div>
         </section>
-
-        <div className="pt-4 border-t border-slate-800 flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <div
-              className={`w-2 h-2 rounded-full ${isPaused ? 'bg-emerald-500' : 'bg-rose-500 animate-pulse'}`}
-            />
-            <span className="text-[9px] font-mono text-slate-500 uppercase">
-              {isPaused ? 'Ready' : 'Executing'}
-            </span>
-          </div>
-          <span className="text-[9px] font-mono text-slate-600">
-            JS_V8_ENGINE
-          </span>
-        </div>
       </aside>
 
-      {/* RIGHT STAGE: Visualizer */}
+      {/* MAIN STAGE */}
       <section className="flex-1 p-6 lg:p-10 flex flex-col gap-6">
-        <div className="bg-slate-900/40 p-6 rounded-2xl border border-slate-800/50 flex flex-col md:flex-row gap-6 items-center shadow-xl">
+        <div className="bg-slate-900/40 p-6 rounded-2xl border border-slate-800/50 flex flex-col md:flex-row gap-4 items-center">
           <ControlPanel
             size={arraySize}
             speed={speed}
-            isPaused={isPaused}
+            isPaused={isPaused && !isBenchmarking}
             onReset={(n) => {
               setArraySize(n);
               setArray(
@@ -196,37 +188,44 @@ export default function SortingPage() {
           <div className="flex gap-2 w-full md:w-auto">
             <button
               onClick={shuffleData}
-              disabled={!isPaused}
-              className="px-6 h-12 rounded-xl border border-slate-700 uppercase text-[10px] font-bold hover:bg-slate-800 transition-colors"
+              disabled={!isPaused || isBenchmarking}
+              className="px-4 h-12 rounded-xl border border-slate-700 uppercase text-[9px] font-bold hover:bg-slate-800 transition-colors"
             >
               Shuffle
             </button>
             <button
+              onClick={runBenchmark}
+              disabled={!isPaused || isBenchmarking}
+              className="px-4 h-12 rounded-xl border border-cyan-800 text-cyan-400 uppercase text-[9px] font-bold hover:bg-cyan-950 transition-colors"
+            >
+              Benchmark
+            </button>
+            <button
               onClick={handleStart}
-              disabled={!isPaused}
-              className="flex-1 px-8 h-12 rounded-xl bg-cyan-500 text-slate-950 font-bold uppercase text-[10px] shadow-lg shadow-cyan-900/20 hover:bg-cyan-400 transition-all active:scale-95"
+              disabled={!isPaused || isBenchmarking}
+              className="flex-1 px-8 h-12 rounded-xl bg-cyan-500 text-slate-950 font-bold uppercase text-[10px] shadow-lg shadow-cyan-900/20 active:scale-95 transition-all"
             >
               {isPaused ? 'Execute' : 'Running...'}
             </button>
           </div>
         </div>
 
-        {/* Results Bar */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-          <StatCard label="Selected Algo" value={algorithm.toUpperCase()} />
           <StatCard
-            label="Comparisons"
-            value={comparing.length > 0 ? 'ACTIVE' : 'IDLE'}
-            highlight={comparing.length > 0}
+            label="Phase"
+            value={isBenchmarking ? 'BENCHMARK' : isPaused ? 'IDLE' : 'ACTIVE'}
+            highlight={!isPaused}
           />
-          <StatCard label="Array Density" value={array.length} />
-          <StatCard label="Current Speed" value={`${speed}ms`} />
+          <StatCard
+            label="Efficiency"
+            value={algorithm === 'bubble' ? 'Low' : 'High'}
+          />
+          <StatCard label="Data Points" value={array.length} />
+          <StatCard label="Speed" value={`${speed}ms`} />
         </div>
 
-        <div className="relative flex-1 min-h-[400px] w-full bg-slate-950 rounded-3xl border border-slate-800/50 flex items-end justify-center px-4 pb-2 gap-[1px] overflow-hidden shadow-2xl">
-          {/* Subtle Grid Background */}
-          <div className="absolute inset-0 bg-[linear-gradient(to_right,#1e293b_1px,transparent_1px),linear-gradient(to_bottom,#1e293b_1px,transparent_1px)] bg-[size:30px_30px] opacity-20" />
-
+        <div className="relative flex-1 min-h-[400px] w-full bg-slate-950 rounded-3xl border border-slate-800/50 flex items-end justify-center px-4 pb-2 gap-[1px] overflow-hidden">
+          <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_120%,#1e293b,transparent)] opacity-30" />
           {array.map((val, idx) => (
             <div
               key={idx}
@@ -234,16 +233,65 @@ export default function SortingPage() {
                 height: `${(val / 105) * 100}%`,
                 width: `${100 / array.length}%`,
               }}
-              className={`relative z-10 transition-all duration-75 rounded-t-[1px] ${
-                comparing.includes(idx)
-                  ? 'bg-rose-500 shadow-[0_0_15px_rgba(244,63,94,0.8)]'
-                  : 'bg-cyan-500/60 group-hover:bg-cyan-400'
-              }`}
+              className={`relative z-10 transition-all duration-75 rounded-t-[1px] ${comparing.includes(idx) ? 'bg-rose-500 shadow-[0_0_15px_rgba(244,63,94,0.8)]' : 'bg-cyan-500/60'}`}
             />
           ))}
+          {isBenchmarking && (
+            <div className="absolute inset-0 bg-slate-950/40 backdrop-blur-[1px] z-20 flex items-center justify-center">
+              <div className="bg-slate-900 border border-cyan-500 px-6 py-3 rounded-xl shadow-2xl animate-pulse flex items-center gap-3">
+                <div className="w-2 h-2 bg-cyan-500 rounded-full" />
+                <span className="text-cyan-500 font-mono text-xs uppercase tracking-widest">
+                  Comparative Mode: {algorithm}
+                </span>
+              </div>
+            </div>
+          )}
         </div>
       </section>
     </main>
+  );
+}
+
+function ComplexityLegend({ currentAlgo }: { currentAlgo: AlgorithmType }) {
+  const details = {
+    bubble: {
+      complexity: 'O(n²)',
+      desc: 'Slow. Every item is compared with every other item. Good for small data only.',
+      color: 'text-rose-400',
+    },
+    quick: {
+      complexity: 'O(n log n)',
+      desc: 'Fast. Uses a "Pivot" to split data into smaller chunks and sort them.',
+      color: 'text-emerald-400',
+    },
+    merge: {
+      complexity: 'O(n log n)',
+      desc: 'Fast & Stable. Splits the array in half repeatedly then merges them back.',
+      color: 'text-emerald-400',
+    },
+  };
+
+  const active = details[currentAlgo];
+
+  return (
+    <section className="bg-slate-800/30 border border-slate-800 rounded-xl p-4">
+      <h2 className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-2 text-center">
+        Complexity Legend
+      </h2>
+      <div className="space-y-2">
+        <div className="flex justify-between items-center">
+          <span className="text-xs font-bold uppercase">
+            {currentAlgo} Sort
+          </span>
+          <span className={`text-xs font-mono font-bold ${active.color}`}>
+            {active.complexity}
+          </span>
+        </div>
+        <p className="text-[11px] text-slate-400 leading-relaxed italic">
+          {active.desc}
+        </p>
+      </div>
+    </section>
   );
 }
 
@@ -262,7 +310,7 @@ function StatCard({
         {label}
       </div>
       <div
-        className={`text-lg font-bold mt-1 tracking-tight ${highlight ? 'text-rose-500' : 'text-slate-200'}`}
+        className={`text-sm font-bold mt-1 ${highlight ? 'text-rose-500 animate-pulse' : 'text-slate-200'}`}
       >
         {value}
       </div>
