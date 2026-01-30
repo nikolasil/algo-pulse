@@ -16,48 +16,43 @@ export const ControlPanel = ({
   speed,
 }: Props) => {
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 bg-slate-800 p-6 rounded-xl border border-slate-700 w-full max-w-4xl">
-      {/* Array Size Slider */}
-      <div className="flex flex-col gap-2">
-        <label className="text-sm font-mono text-slate-400">
-          Array Size: {size}
-        </label>
+    <div className="flex flex-col sm:flex-row gap-8 flex-1 justify-center">
+      {/* Array Size */}
+      <div className="flex flex-col gap-2 min-w-[140px]">
+        <div className="flex justify-between items-center">
+          <label className="text-[10px] font-mono text-slate-500 uppercase tracking-widest">
+            Size
+          </label>
+          <span className="text-xs font-bold text-cyan-500">{size}</span>
+        </div>
         <input
           type="range"
-          min="5"
-          max="100"
+          min="10"
+          max="200"
           value={size}
           disabled={!isPaused}
           onChange={(e) => onReset(Number(e.target.value))}
-          className="accent-cyan-500 cursor-pointer disabled:opacity-50"
+          className="h-1.5 w-full bg-slate-800 rounded-lg appearance-none cursor-pointer accent-cyan-500 disabled:opacity-30"
         />
       </div>
 
       {/* Speed Slider */}
-      <div className="flex flex-col gap-2">
-        <label className="text-sm font-mono text-slate-400">
-          Delay: {speed}ms
-        </label>
+      <div className="flex flex-col gap-2 min-w-[140px]">
+        <div className="flex justify-between items-center">
+          <label className="text-[10px] font-mono text-slate-500 uppercase tracking-widest">
+            Delay
+          </label>
+          <span className="text-xs font-bold text-cyan-500">{speed}ms</span>
+        </div>
         <input
           type="range"
           min="1"
-          max="500"
-          step="10"
+          max="200"
+          step="1"
           value={speed}
           onChange={(e) => onSpeedChange(Number(e.target.value))}
-          className="accent-cyan-500 cursor-pointer"
+          className="h-1.5 w-full bg-slate-800 rounded-lg appearance-none cursor-pointer accent-cyan-500"
         />
-      </div>
-
-      {/* Action Buttons */}
-      <div className="flex items-end gap-2">
-        <button
-          onClick={() => onReset(size)}
-          disabled={!isPaused}
-          className="w-full py-2 bg-slate-700 hover:bg-slate-600 disabled:opacity-50 rounded text-sm font-bold transition-colors"
-        >
-          Shuffle
-        </button>
       </div>
     </div>
   );
