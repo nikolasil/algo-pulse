@@ -16,11 +16,15 @@ import { StatCard } from '@/components/StatCard';
 import { TelemetryLog } from '@/components/TelemetryLog';
 import { ExpandableSidebar } from '@/components/ExpandableSidebar';
 import { BenchmarkModal } from '@/components/BenchmarkModal';
-import { createNode, Node } from '@/algorithms/pathfindingAlgorithms';
+import {
+  createNode,
+  HeuristicType,
+  Node,
+} from '@/algorithms/pathfindingAlgorithms';
 import { useAudio } from '@/hooks/useAudio';
 
 export default function GridPage() {
-  const [dimensions, setDimensions] = useState({ rows: 15, cols: 30 });
+  const [dimensions, setDimensions] = useState({ rows: 15, cols: 31 }); // Odd numbers work best for mazes
   const [grid, setGrid] = useState<Node[][]>([]);
   const [isMousePressed, setIsMousePressed] = useState(false);
   const [showBenchmarkModal, setShowBenchmarkModal] = useState(false);
@@ -39,6 +43,7 @@ export default function GridPage() {
     isBenchmarking,
     setIsBenchmarking,
     heuristic,
+    setHeuristic,
     brush,
     setBrush,
     history,
@@ -62,10 +67,10 @@ export default function GridPage() {
     stepBackward,
   } = useAlgorithm([]);
 
-  const startPos = { row: Math.floor(dimensions.rows / 2), col: 5 };
+  const startPos = { row: 1, col: 1 };
   const endPos = {
-    row: Math.floor(dimensions.rows / 2),
-    col: dimensions.cols - 5,
+    row: dimensions.rows - 2,
+    col: dimensions.cols - 2,
   };
 
   const startTimer = () => {
@@ -86,17 +91,16 @@ export default function GridPage() {
 
   const initGrid = useCallback(
     (rows: number, cols: number) => {
-      stopSimulation();
-      stopTimer();
+      handleStopAll();
       setExecutionTime(0);
       setNodesExplored(0);
-      activeGenRef.current = null;
       setGrid(
         Array.from({ length: rows }, (_, r) =>
           Array.from({ length: cols }, (_, c) => createNode(r, c)),
         ),
       );
     },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     [stopSimulation],
   );
 
@@ -122,6 +126,89 @@ export default function GridPage() {
     stopTimer();
     setIsBenchmarking(false);
     activeGenRef.current = null;
+  };
+
+  const handleNodeInteraction = (r: number, c: number) => {
+    if (!isPaused || isBenchmarking) return;
+    if (
+      (r === startPos.row && c === startPos.col) ||
+      (r === endPos.row && c === endPos.col)
+    )
+      return;
+
+    const newGrid = [...grid];
+    const node = newGrid[r][c];
+
+    if (brush === 'Wall') {
+      node.isWall = !node.isWall;
+      node.isMud = false;
+    } else if (brush === 'Mud') {
+      node.isMud = !node.isMud;
+      node.isWall = false;
+    } else {
+      node.isWall = false;
+      node.isMud = false;
+    }
+    setGrid(newGrid);
+  };
+
+  const handleGenerateMaze = () => {
+    handleStopAll();
+    // Start with all walls
+    const newGrid = Array.from({ length: dimensions.rows }, (_, r) =>
+      Array.from({ length: dimensions.cols }, (_, c) => {
+        const node = createNode(r, c);
+        node.isWall = true;
+        return node;
+      }),
+    );
+
+    const stack: [number, number][] = [];
+    const startR = 1,
+      startC = 1;
+    newGrid[startR][startC].isWall = false;
+    stack.push([startR, startC]);
+
+    while (stack.length > 0) {
+      const [r, c] = stack[stack.length - 1];
+      const neighbors: [number, number, number, number][] = [];
+
+      // Check neighbors 2 units away
+      [
+        [0, 2],
+        [0, -2],
+        [2, 0],
+        [-2, 0],
+      ].forEach(([dr, dc]) => {
+        const nr = r + dr,
+          nc = c + dc;
+        if (
+          nr > 0 &&
+          nr < dimensions.rows - 1 &&
+          nc > 0 &&
+          nc < dimensions.cols - 1 &&
+          newGrid[nr][nc].isWall
+        ) {
+          neighbors.push([nr, nc, r + dr / 2, c + dc / 2]);
+        }
+      });
+
+      if (neighbors.length > 0) {
+        const [nr, nc, mr, mc] =
+          neighbors[Math.floor(Math.random() * neighbors.length)];
+        newGrid[nr][nc].isWall = false;
+        newGrid[mr][mc].isWall = false;
+        stack.push([nr, nc]);
+      } else {
+        stack.pop();
+      }
+    }
+
+    // Ensure start and end are clear
+    newGrid[startPos.row][startPos.col].isWall = false;
+    newGrid[endPos.row][endPos.col].isWall = false;
+
+    setGrid(newGrid);
   };
 
   const handleExecute = async (
@@ -155,20 +242,17 @@ export default function GridPage() {
       let count = 0;
       let pathLen = 0;
       for await (const step of algorithmInstance) {
-        // Fix: Use 'in' operator to check for property existence before access
         if ('grid' in step && step.grid) {
           setGrid(step.grid);
           const flat = step.grid.flat();
           count = flat.filter((n: Node) => n.isVisited).length;
           pathLen = flat.filter((n: Node) => n.isPath).length;
-
           setNodesExplored(count);
           playTone(count % 1000);
         }
         yield step;
       }
       stopTimer();
-
       if (pathLen > 0) playTone(150, 0.2);
 
       setHistory((prev: any) =>
@@ -194,109 +278,96 @@ export default function GridPage() {
 
   const runFullBenchmark = async (isVisual: boolean) => {
     if (isVisual) playTone(0);
-
     setIsBenchmarking(true);
     setShowBenchmarkModal(false);
     abortBenchmarkRef.current = false;
     stopSimulation();
-    setExecutionTime(0);
 
     const algos: AlgorithmType[] = ['Dijkstra', 'A*', 'Greedy', 'BFS', 'DFS'];
+    const heuristics: HeuristicType[] = ['Manhattan', 'Euclidean'];
     const results: any[] = [];
     const originalSpeed = speed;
 
     for (const algo of algos) {
       if (abortBenchmarkRef.current) break;
-      setAlgorithm(algo);
-      setNodesExplored(0);
-      setExecutionTime(0);
-      startTimer();
 
-      const workGrid = getPreparedGrid();
-      const startNode = workGrid[startPos.row][startPos.col];
-      const endNode = workGrid[endPos.row][endPos.col];
-      const { gen, complexity } = getAlgoData(algo);
+      // Determine variants (one for basic algos, three for heuristic ones)
+      const variants = algo === 'A*' || algo === 'Greedy' ? heuristics : [null];
 
-      let wasSuccessful = false;
-      let count = 0;
-      let pathLen = 0;
-      const startTime = performance.now();
+      for (const hVariant of variants) {
+        if (abortBenchmarkRef.current) break;
 
-      const it =
-        algo === 'A*' || algo === 'Greedy'
-          ? gen(workGrid, startNode, endNode, heuristic)
+        setAlgorithm(algo);
+        if (hVariant) setHeuristic(hVariant);
+
+        setNodesExplored(0);
+        setExecutionTime(0);
+        startTimer();
+
+        const workGrid = getPreparedGrid();
+        const startNode = workGrid[startPos.row][startPos.col];
+        const endNode = workGrid[endPos.row][endPos.col];
+        const { gen, complexity } = getAlgoData(algo);
+
+        let wasSuccessful = false;
+        let count = 0;
+        let pathLen = 0;
+        const startTime = performance.now();
+
+        const it = hVariant
+          ? gen(workGrid, startNode, endNode, hVariant)
           : gen(workGrid, startNode, endNode);
 
-      if (isVisual) {
-        setSpeed(0);
-        for await (const step of it) {
-          if (abortBenchmarkRef.current) break;
-          // Fix: Type narrowing with 'in'
-          if ('grid' in step && step.grid) {
-            setGrid(step.grid);
-            const flat = step.grid.flat();
-            count = flat.filter((n: Node) => n.isVisited).length;
-            pathLen = flat.filter((n: Node) => n.isPath).length;
-            setNodesExplored(count);
-            if (pathLen > 0) wasSuccessful = true;
-            playTone(count % 1000);
+        if (isVisual) {
+          setSpeed(0);
+          for await (const step of it) {
+            if (abortBenchmarkRef.current) break;
+            if ('grid' in step && step.grid) {
+              setGrid(step.grid);
+              const flat = step.grid.flat();
+              count = flat.filter((n: Node) => n.isVisited).length;
+              pathLen = flat.filter((n: Node) => n.isPath).length;
+              setNodesExplored(count);
+              if (pathLen > 0) wasSuccessful = true;
+              playTone(count % 1000);
+            }
+            await new Promise((r) => setTimeout(r, 1));
           }
-          await new Promise((r) => setTimeout(r, 1));
-        }
-      } else {
-        let res = await it.next();
-        while (!res.done && !abortBenchmarkRef.current) {
-          // Fix: Type narrowing with optional chaining and property check
-          const val = res.value;
-          if (val && 'grid' in val && val.grid) {
-            const flat = val.grid.flat();
-            count = flat.filter((n: Node) => n.isVisited).length;
-            pathLen = flat.filter((n: Node) => n.isPath).length;
-            setNodesExplored(count);
-            if (pathLen > 0) wasSuccessful = true;
+        } else {
+          let res = await it.next();
+          while (!res.done && !abortBenchmarkRef.current) {
+            const val = res.value;
+            if (val && 'grid' in val && val.grid) {
+              const flat = val.grid.flat();
+              count = flat.filter((n: Node) => n.isVisited).length;
+              pathLen = flat.filter((n: Node) => n.isPath).length;
+              if (pathLen > 0) wasSuccessful = true;
+            }
+            res = await it.next();
           }
-          res = await it.next();
         }
-      }
 
-      stopTimer();
-      if (!abortBenchmarkRef.current) {
-        results.push({
-          name: algo,
-          time: Math.round(performance.now() - startTime),
-          complexity,
-          success: wasSuccessful,
-          size: count,
-          pathLength: pathLen,
-        });
+        stopTimer();
+        if (!abortBenchmarkRef.current) {
+          results.push({
+            name: hVariant ? `${algo} (${hVariant})` : algo,
+            time: Math.round(performance.now() - startTime),
+            complexity,
+            success: wasSuccessful,
+            size: count,
+            pathLength: pathLen,
+          });
+        }
+        await new Promise((r) => setTimeout(r, 400));
       }
-      await new Promise((r) => setTimeout(r, 400));
     }
 
     if (!abortBenchmarkRef.current) {
       setBenchmarkResults(results);
-      setHistory((prev) =>
-        [
-          ...results.map((r) => ({
-            id: Date.now() + Math.random(),
-            algorithm: r.name,
-            size: r.size,
-            pathLength: r.pathLength,
-            time: r.time,
-            success: r.success,
-          })),
-          ...prev,
-        ].slice(0, 10),
-      );
       setShowBenchmarkModal(true);
     }
-
     setSpeed(originalSpeed);
     setIsBenchmarking(false);
-  };
-
-  const handleNodeInteraction = (r: number, c: number) => {
-    // Implementation for drawing walls/mud/etc
   };
 
   return (
@@ -304,11 +375,11 @@ export default function GridPage() {
       <ExpandableSidebar>
         <NavHeader title="Pathfinding Pulse" subtitle="Diagnostic Engine" />
         <section className="space-y-4">
-          <div className="flex justify-between items-center mb-2">
+          <div className="space-y-4">
             <h2 className="text-[10px] font-bold text-slate-400 tracking-widest uppercase">
               Select Algorithm
             </h2>
-            <div className="flex gap-1">
+            <div className="flex flex-wrap gap-1">
               {(
                 ['Dijkstra', 'A*', 'Greedy', 'BFS', 'DFS'] as AlgorithmType[]
               ).map((type) => (
@@ -318,12 +389,36 @@ export default function GridPage() {
                     handleStopAll();
                     setAlgorithm(type);
                   }}
-                  className={`px-2 py-0.5 rounded text-[8px] font-bold transition-all ${algorithm === type ? 'bg-cyan-600 text-white' : 'bg-slate-800 text-slate-500 hover:text-slate-300'}`}
+                  className={`px-2 py-1 rounded text-[10px] font-bold transition-all ${algorithm === type ? 'bg-cyan-600 text-white' : 'bg-slate-800 text-slate-500'}`}
                 >
                   {type}
                 </button>
               ))}
             </div>
+
+            {(algorithm === 'A*' || algorithm === 'Greedy') && (
+              <div className="pt-2 border-t border-slate-800">
+                <h2 className="text-[10px] font-bold text-slate-400 tracking-widest uppercase mb-2">
+                  Heuristic
+                </h2>
+                <div className="flex gap-1">
+                  {(['Manhattan', 'Euclidean'] as HeuristicType[]).map(
+                    (h: HeuristicType) => (
+                      <button
+                        key={h}
+                        onClick={() => {
+                          handleStopAll();
+                          setHeuristic(h);
+                        }}
+                        className={`px-2 py-1 rounded text-[9px] font-bold transition-all ${heuristic === h ? 'bg-purple-600 text-white' : 'bg-slate-800 text-slate-500'}`}
+                      >
+                        {h}
+                      </button>
+                    ),
+                  )}
+                </div>
+              </div>
+            )}
           </div>
           <CodeViewer
             code={getAlgoData(algorithm).code}
@@ -345,7 +440,7 @@ export default function GridPage() {
           onBrushChange={setBrush}
           onSpeedChange={setSpeed}
           onSizeChange={(val) =>
-            setDimensions({ rows: Math.floor(val / 2), cols: val })
+            setDimensions({ rows: Math.floor(val / 2) | 1, cols: val | 1 })
           }
           onExecute={() => handleExecute(algorithm, true)}
           onStop={handleStopAll}
@@ -364,7 +459,7 @@ export default function GridPage() {
           onStepForward={stepForward}
           onStartStepByStep={() => handleExecute(algorithm, false)}
           onGenerate={() => initGrid(dimensions.rows, dimensions.cols)}
-          onGenerateMaze={() => {}}
+          onGenerateMaze={handleGenerateMaze}
           isBenchmarking={isBenchmarking}
           onGeneratePattern={() => {}}
           onManualUpdate={() => {}}
@@ -375,17 +470,10 @@ export default function GridPage() {
         <div className="grid grid-cols-2 lg:grid-cols-6 gap-4">
           <StatCard label="Algorithm" value={algorithm} highlight={true} />
           <StatCard
-            label="Phase"
+            label="Heuristic"
             value={
-              isBenchmarking
-                ? 'BENCHMARKING'
-                : hasGenerator
-                  ? isPaused
-                    ? 'PAUSED'
-                    : 'RUNNING'
-                  : 'IDLE'
+              algorithm === 'A*' || algorithm === 'Greedy' ? heuristic : 'N/A'
             }
-            highlight={hasGenerator && !isPaused}
           />
           <StatCard
             label="Exec Time"
@@ -405,18 +493,19 @@ export default function GridPage() {
         </div>
 
         <div
-          className="flex-1 bg-slate-950 border border-slate-800 rounded-3xl flex items-center justify-center overflow-hidden relative"
+          className="flex-1 bg-slate-950 border border-slate-800 rounded-3xl flex items-center justify-center overflow-hidden relative cursor-crosshair"
           onMouseDown={() => setIsMousePressed(true)}
           onMouseUp={() => setIsMousePressed(false)}
+          onMouseLeave={() => setIsMousePressed(false)}
         >
           <GridVisualizer
             grid={grid}
             dimensions={dimensions}
             startPos={startPos}
             endPos={endPos}
-            onNodeMouseDown={(r, c) => isPaused && handleNodeInteraction(r, c)}
+            onNodeMouseDown={handleNodeInteraction}
             onNodeMouseEnter={(r, c) =>
-              isMousePressed && isPaused && handleNodeInteraction(r, c)
+              isMousePressed && handleNodeInteraction(r, c)
             }
             isMousePressed={isMousePressed}
           />
