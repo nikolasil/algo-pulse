@@ -1,6 +1,6 @@
 'use client';
 
-import React from 'react';
+import React, { useMemo, useState, useRef, useEffect } from 'react';
 import { TreeNode } from '@/structures/treeAlgorithms';
 
 interface TreeVisualizerProps {
@@ -14,6 +14,89 @@ export const TreeVisualizer: React.FC<TreeVisualizerProps> = ({
   activeNodeId,
   visitedNodes,
 }) => {
+  const [zoom, setZoom] = useState(1);
+  const [offset, setOffset] = useState({ x: 0, y: 0 });
+  const [isDragging, setIsDragging] = useState(false);
+  const lastMousePos = useRef({ x: 0, y: 0 });
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  // 1. Calculate boundaries for the ViewBox
+  const baseViewBox = useMemo(() => {
+    if (!root) return { minX: 0, minY: 0, width: 100, height: 100 };
+
+    let minX = Infinity;
+    let maxX = -Infinity;
+    let minY = Infinity;
+    let maxY = -Infinity;
+
+    const traverse = (node: TreeNode) => {
+      minX = Math.min(minX, node.x);
+      maxX = Math.max(maxX, node.x);
+      minY = Math.min(minY, node.y);
+      maxY = Math.max(maxY, node.y);
+      if (node.left) traverse(node.left);
+      if (node.right) traverse(node.right);
+    };
+
+    traverse(root);
+
+    const padding = 40;
+    const width = maxX - minX + padding * 2;
+    const height = maxY - minY + padding * 2;
+
+    return {
+      minX: minX - padding,
+      minY: minY - padding,
+      width,
+      height,
+    };
+  }, [root]);
+
+  // Combined ViewBox string with offset applied
+  const currentViewBoxString = `${baseViewBox.minX + offset.x} ${
+    baseViewBox.minY + offset.y
+  } ${baseViewBox.width} ${baseViewBox.height}`;
+
+  // 2. Interaction Handlers
+  const handleWheel = (e: React.WheelEvent) => {
+    if (e.ctrlKey || e.metaKey) {
+      const delta = e.deltaY > 0 ? -0.1 : 0.1;
+      setZoom((prev) => Math.min(Math.max(prev + delta, 0.5), 3));
+    } else {
+      // Normal scrolling pans the view
+      setOffset((prev) => ({
+        x: prev.x + e.deltaX,
+        y: prev.y + e.deltaY,
+      }));
+    }
+  };
+
+  const handleStart = (clientX: number, clientY: number) => {
+    setIsDragging(true);
+    lastMousePos.current = { x: clientX, y: clientY };
+  };
+
+  const handleMove = (clientX: number, clientY: number) => {
+    if (!isDragging) return;
+
+    const dx = (lastMousePos.current.x - clientX) * (1 / zoom);
+    const dy = (lastMousePos.current.y - clientY) * (1 / zoom);
+
+    setOffset((prev) => ({
+      x: prev.x + dx,
+      y: prev.y + dy,
+    }));
+
+    lastMousePos.current = { x: clientX, y: clientY };
+  };
+
+  const handleEnd = () => setIsDragging(false);
+
+  // Reset offset when tree changes radically if desired
+  useEffect(() => {
+    setOffset({ x: 0, y: 0 });
+  }, [root]);
+
   const renderNodes = (node: TreeNode | null): React.ReactNode => {
     if (!node) return null;
 
@@ -22,15 +105,14 @@ export const TreeVisualizer: React.FC<TreeVisualizerProps> = ({
 
     return (
       <g key={node.value}>
-        {/* Draw lines to children first so they are behind nodes */}
         {node.left && (
           <line
             x1={node.x}
             y1={node.y}
             x2={node.left.x}
             y2={node.left.y}
-            stroke="#334155"
-            strokeWidth="2"
+            stroke="#1e293b"
+            strokeWidth="1"
           />
         )}
         {node.right && (
@@ -39,34 +121,35 @@ export const TreeVisualizer: React.FC<TreeVisualizerProps> = ({
             y1={node.y}
             x2={node.right.x}
             y2={node.right.y}
-            stroke="#334155"
-            strokeWidth="2"
+            stroke="#1e293b"
+            strokeWidth="1"
           />
         )}
 
-        {/* The Node Circle */}
         <circle
           cx={node.x}
           cy={node.y}
-          r="22"
+          r="12"
           className={`transition-all duration-300 ${
             isActive
-              ? 'fill-cyan-400 filter drop-shadow-[0_0_8px_rgba(34,211,238,0.8)]'
+              ? 'fill-cyan-400 filter drop-shadow-[0_0_6px_rgba(34,211,238,0.6)]'
               : isVisited
                 ? 'fill-indigo-600'
-                : 'fill-slate-800'
+                : 'fill-slate-900'
           }`}
-          stroke={isActive ? '#fff' : '#475569'}
-          strokeWidth="2"
+          stroke={isActive ? '#fff' : '#334155'}
+          strokeWidth="1"
         />
+
         <text
           x={node.x}
-          y={node.y + 5}
+          y={node.y}
+          dy=".35em"
           textAnchor="middle"
-          fontSize="14"
+          fontSize="9"
           fontWeight="bold"
           fill="white"
-          className="pointer-events-none select-none"
+          className="pointer-events-none select-none font-sans"
         >
           {node.value}
         </text>
@@ -78,13 +161,46 @@ export const TreeVisualizer: React.FC<TreeVisualizerProps> = ({
   };
 
   return (
-    /* FIX: Removed overflow-hidden and fixed height/width. 
-       The SVG now uses overflow: visible so that nodes rendered outside 
-       the "0 0" origin are still visible when the user pans.
-    */
-    <div className="w-full h-full flex items-center justify-center">
-      <svg className="overflow-visible" style={{ width: '1px', height: '1px' }}>
-        {renderNodes(root)}
+    <div
+      ref={containerRef}
+      className={`w-full h-full flex items-center justify-center relative overflow-hidden bg-slate-950/50 rounded-xl touch-none ${
+        isDragging ? 'cursor-grabbing' : 'cursor-grab'
+      }`}
+      onWheel={handleWheel}
+      onMouseDown={(e) => handleStart(e.clientX, e.clientY)}
+      onMouseMove={(e) => handleMove(e.clientX, e.clientY)}
+      onMouseUp={handleEnd}
+      onMouseLeave={handleEnd}
+      onTouchStart={(e) =>
+        handleStart(e.touches[0].clientX, e.touches[0].clientY)
+      }
+      onTouchMove={(e) =>
+        handleMove(e.touches[0].clientX, e.touches[0].clientY)
+      }
+      onTouchEnd={handleEnd}
+    >
+      <svg
+        viewBox={currentViewBoxString}
+        className="w-full h-full transition-transform duration-75 ease-out"
+        style={{
+          transform: `scale(${zoom})`,
+          transformOrigin: 'center center',
+        }}
+        preserveAspectRatio="xMidYMid meet"
+      >
+        {root ? (
+          renderNodes(root)
+        ) : (
+          <text
+            x={baseViewBox.minX + baseViewBox.width / 2}
+            y={baseViewBox.minY + baseViewBox.height / 2}
+            fill="#475569"
+            textAnchor="middle"
+            className="text-sm font-medium"
+          >
+            Awaiting Tree Data...
+          </text>
+        )}
       </svg>
     </div>
   );

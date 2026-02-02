@@ -235,7 +235,7 @@ export default function TreeTraversalPage() {
           onTreeModeChange={(m) => {
             setTreeMode(m);
             randomizeTree(m);
-          } }
+          }}
           onTargetChange={(val) => setTreeTarget(val.toString())}
           onSpeedChange={setSpeed}
           onExecute={handleExecute}
@@ -244,14 +244,14 @@ export default function TreeTraversalPage() {
           onShuffle={() => randomizeTree(treeMode)}
           onGenerate={() => randomizeTree(treeMode)}
           // Set unused grid props to empty functions
-          onSizeChange={() => { } }
-          onStepBack={() => { } }
-          onStepForward={() => { } }
-          onManualUpdate={() => { } }
-          onQuickBenchmark={() => { } }
-          onVisualRun={() => { } }
+          onSizeChange={() => {}}
+          onStepBack={() => {}}
+          onStepForward={() => {}}
+          onManualUpdate={() => {}}
+          onQuickBenchmark={() => {}}
+          onVisualRun={() => {}}
           onStartStepByStep={handleExecute}
-          onGeneratePattern={() => { }}
+          onGeneratePattern={() => {}}
           isBenchmarking={false}
         />
 
@@ -276,8 +276,7 @@ export default function TreeTraversalPage() {
             />
           </div>
 
-          {/* Zoom Controls */}
-          <div className="absolute bottom-6 right-6 flex flex-col gap-2">
+          <div className="absolute bottom-6 right-6 flex flex-row gap-2">
             <button
               onClick={() => setZoom((z) => Math.min(z + 0.2, 2))}
               className="w-10 h-10 bg-slate-800 rounded-xl border border-slate-700 hover:bg-slate-700"
@@ -285,10 +284,16 @@ export default function TreeTraversalPage() {
               +
             </button>
             <button
+              onClick={() => setZoom(1)}
+              className="w-10 h-10 bg-slate-800 rounded-xl border border-slate-700 hover:bg-slate-700"
+            >
+              RST
+            </button>
+            <button
               onClick={() => setZoom((z) => Math.max(z - 0.2, 0.5))}
               className="w-10 h-10 bg-slate-800 rounded-xl border border-slate-700 hover:bg-slate-700"
             >
-              -button
+              -
             </button>
           </div>
         </div>
