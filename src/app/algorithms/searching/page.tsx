@@ -9,7 +9,7 @@ import { NavHeader } from '@/components/NavHeader';
 import { StatCard } from '@/components/StatCard';
 import { TelemetryLog } from '@/components/TelemetryLog';
 import { ExpandableSidebar } from '@/components/ExpandableSidebar';
-import { BenchmarkModal } from '@/components/BenchmarkModal';
+import { BenchmarkModal, RawBenchmarkData } from '@/components/BenchmarkModal';
 import { AlgorithmType, useSearchingLogic } from '@/hooks/useSearchingLogic';
 
 export default function SearchingPage() {
@@ -143,13 +143,7 @@ export default function SearchingPage() {
     abortRef.current = false;
     stopSimulation();
     const algos: AlgorithmType[] = ['Linear', 'Binary', 'Jump'];
-    const results: {
-      name: string;
-      time: number;
-      complexity: string;
-      success: boolean;
-      size: number;
-    }[] = [];
+    const results: RawBenchmarkData[] = [];
     const originalSpeed = speed;
 
     for (const algo of algos) {
@@ -354,9 +348,9 @@ export default function SearchingPage() {
       {benchmarkData && benchmarkData.length > 0 && (
         <BenchmarkModal
           data={benchmarkData}
-          onClose={() => setBenchmarkData(null)}
+          onClose={() => setBenchmarkData([])}
           onReRun={() => {
-            setBenchmarkData(null);
+            setBenchmarkData([]);
             runFullBenchmark(false);
           }}
         />

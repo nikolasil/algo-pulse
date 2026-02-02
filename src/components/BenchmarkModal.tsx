@@ -1,11 +1,11 @@
 'use client';
 import { useMemo } from 'react';
 
-interface RawBenchmarkData {
+export interface RawBenchmarkData {
   name: string;
   time: number;
   complexity: string;
-  success: boolean;
+  success?: boolean;
   size?: number; // Elements/Array Size
   pathLength?: number; // Only present for Pathfinding
 }

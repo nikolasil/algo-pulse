@@ -8,6 +8,7 @@ import {
   mergeSort,
   mergeSortCode,
 } from '@/algorithms/sortingAlgorithms';
+import { RawBenchmarkData } from '@/components/BenchmarkModal';
 
 export type AlgorithmType = 'Bubble' | 'Quick' | 'Merge';
 
@@ -19,10 +20,8 @@ export function useSortingLogic() {
   const [history, setHistory] = useState<
     { id: number; algorithm: string; size: number; time: number }[]
   >([]);
-  const [benchmarkData, setBenchmarkData] = useState<
-    { name: string; time: number; complexity: string }[] | null
-    >(null);
-  
+  const [benchmarkData, setBenchmarkData] = useState<RawBenchmarkData[]>([]);
+
   const getAlgoData = useCallback((type: AlgorithmType) => {
     switch (type) {
       case 'Quick':

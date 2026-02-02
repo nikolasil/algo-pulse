@@ -235,7 +235,7 @@ export default function TreeTraversalPage() {
           onTreeModeChange={(m) => {
             setTreeMode(m);
             randomizeTree(m);
-          }}
+          } }
           onTargetChange={(val) => setTreeTarget(val.toString())}
           onSpeedChange={setSpeed}
           onExecute={handleExecute}
@@ -244,14 +244,15 @@ export default function TreeTraversalPage() {
           onShuffle={() => randomizeTree(treeMode)}
           onGenerate={() => randomizeTree(treeMode)}
           // Set unused grid props to empty functions
-          onSizeChange={() => {}}
-          onStepBack={() => {}}
-          onStepForward={() => {}}
-          onManualUpdate={() => {}}
-          onQuickBenchmark={() => {}}
-          onVisualRun={() => {}}
+          onSizeChange={() => { } }
+          onStepBack={() => { } }
+          onStepForward={() => { } }
+          onManualUpdate={() => { } }
+          onQuickBenchmark={() => { } }
+          onVisualRun={() => { } }
           onStartStepByStep={handleExecute}
-          onGeneratePattern={() => {}}
+          onGeneratePattern={() => { }}
+          isBenchmarking={false}
         />
 
         <div

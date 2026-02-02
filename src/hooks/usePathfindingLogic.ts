@@ -14,6 +14,7 @@ import {
   dfsCode,
   HeuristicType,
 } from '@/algorithms/pathfindingAlgorithms';
+import { RawBenchmarkData } from '@/components/BenchmarkModal';
 
 export type AlgorithmType = 'Dijkstra' | 'A*' | 'Greedy' | 'BFS' | 'DFS';
 
@@ -22,17 +23,7 @@ export function usePathfindingLogic() {
   const [heuristic, setHeuristic] = useState<HeuristicType>('Manhattan');
   const [brush, setBrush] = useState<'Wall' | 'Mud'>('Wall');
   const [isBenchmarking, setIsBenchmarking] = useState(false);
-  const [benchmarkResults, setBenchmarkResults] = useState<
-    | {
-        name: string;
-        time: number;
-        complexity: string;
-        success: boolean;
-        size: number;
-        pathLength?: number;
-      }[]
-    | null
-  >([]);
+  const [benchmarkResults, setBenchmarkResults] = useState<RawBenchmarkData[]>([]);
   const [history, setHistory] = useState<
     {
       id: number;

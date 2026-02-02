@@ -1,6 +1,6 @@
 'use client';
 
-interface LogItem {
+export interface LogItem {
   id: number;
   algorithm: string;
   size: number;

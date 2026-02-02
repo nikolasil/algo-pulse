@@ -11,7 +11,7 @@ import { NavHeader } from '@/components/NavHeader';
 import { StatCard } from '@/components/StatCard';
 import { TelemetryLog } from '@/components/TelemetryLog';
 import { ExpandableSidebar } from '@/components/ExpandableSidebar';
-import { BenchmarkModal } from '@/components/BenchmarkModal';
+import { BenchmarkModal, RawBenchmarkData } from '@/components/BenchmarkModal';
 
 export default function SortingPage() {
   const [arraySize, setArraySize] = useState(50);
@@ -113,12 +113,7 @@ export default function SortingPage() {
     setExecutionTime(0);
 
     const algorithms: AlgorithmType[] = ['Bubble', 'Quick', 'Merge'];
-    const results: {
-      name: string;
-      time: number;
-      complexity: string;
-      size: number;
-    }[] = [];
+    const results: RawBenchmarkData[] = [];
     const originalArray = [...array];
     const originalSpeed = speed;
 
@@ -294,10 +289,9 @@ export default function SortingPage() {
       {benchmarkData && (
         <BenchmarkModal
           data={benchmarkData}
-          arraySize={array.length}
-          onClose={() => setBenchmarkData(null)}
+          onClose={() => setBenchmarkData([])}
           onReRun={() => {
-            setBenchmarkData(null);
+            setBenchmarkData([]);
             runFullBenchmark(false);
           }}
         />

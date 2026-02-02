@@ -31,8 +31,6 @@ export default function GridPage() {
   const abortBenchmarkRef = useRef(false);
   const timerIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
-  // Destructure the resume function if you updated the hook,
-  // otherwise we'll just use playTone
   const { playTone } = useAudio();
 
   const {
@@ -130,7 +128,6 @@ export default function GridPage() {
     mode: AlgorithmType = algorithm,
     autoRun = true,
   ) => {
-    // TRIGGER: Initial tone to unlock AudioContext via User Gesture
     playTone(0);
 
     if (activeGenRef.current && autoRun && isPaused) {
@@ -158,25 +155,23 @@ export default function GridPage() {
       let count = 0;
       let pathLen = 0;
       for await (const step of algorithmInstance) {
-        if ('grid' in step) {
+        // Fix: Use 'in' operator to check for property existence before access
+        if ('grid' in step && step.grid) {
           setGrid(step.grid);
           const flat = step.grid.flat();
-          count = flat.filter((n) => n.isVisited).length;
-          pathLen = flat.filter((n) => n.isPath).length;
+          count = flat.filter((n: Node) => n.isVisited).length;
+          pathLen = flat.filter((n: Node) => n.isPath).length;
 
           setNodesExplored(count);
-
-          // PLAY TONE HERE: inside the generator for real-time frequency updates
           playTone(count % 1000);
         }
         yield step;
       }
       stopTimer();
 
-      // Optional: Success sound
       if (pathLen > 0) playTone(150, 0.2);
 
-      setHistory((prev): any =>
+      setHistory((prev: any) =>
         [
           {
             id: Date.now(),
@@ -198,7 +193,6 @@ export default function GridPage() {
   };
 
   const runFullBenchmark = async (isVisual: boolean) => {
-    // Unlock audio for visual benchmark
     if (isVisual) playTone(0);
 
     setIsBenchmarking(true);
@@ -237,15 +231,14 @@ export default function GridPage() {
         setSpeed(0);
         for await (const step of it) {
           if (abortBenchmarkRef.current) break;
-          if (step.grid) {
+          // Fix: Type narrowing with 'in'
+          if ('grid' in step && step.grid) {
             setGrid(step.grid);
             const flat = step.grid.flat();
-            count = flat.filter((n: any) => n.isVisited).length;
-            pathLen = flat.filter((n: any) => n.isPath).length;
+            count = flat.filter((n: Node) => n.isVisited).length;
+            pathLen = flat.filter((n: Node) => n.isPath).length;
             setNodesExplored(count);
             if (pathLen > 0) wasSuccessful = true;
-
-            // Audio for visual benchmark
             playTone(count % 1000);
           }
           await new Promise((r) => setTimeout(r, 1));
@@ -253,10 +246,12 @@ export default function GridPage() {
       } else {
         let res = await it.next();
         while (!res.done && !abortBenchmarkRef.current) {
-          if (res.value?.grid) {
-            const flat = res.value.grid.flat();
-            count = flat.filter((n: any) => n.isVisited).length;
-            pathLen = flat.filter((n: any) => n.isPath).length;
+          // Fix: Type narrowing with optional chaining and property check
+          const val = res.value;
+          if (val && 'grid' in val && val.grid) {
+            const flat = val.grid.flat();
+            count = flat.filter((n: Node) => n.isVisited).length;
+            pathLen = flat.filter((n: Node) => n.isPath).length;
             setNodesExplored(count);
             if (pathLen > 0) wasSuccessful = true;
           }
@@ -301,8 +296,7 @@ export default function GridPage() {
   };
 
   const handleNodeInteraction = (r: number, c: number) => {
-    // This function was missing in your snippet but referenced
-    // Logic for drawing walls/start/end would go here
+    // Implementation for drawing walls/mud/etc
   };
 
   return (
@@ -357,7 +351,6 @@ export default function GridPage() {
           onStop={handleStopAll}
           onTogglePause={() => {
             if (isPaused && activeGenRef.current) {
-              // Unlock audio on resume
               playTone(0);
               startTimer();
               runSimulation(activeGenRef.current);

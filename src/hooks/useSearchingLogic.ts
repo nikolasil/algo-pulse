@@ -8,6 +8,8 @@ import {
   jumpSearch,
   jumpSearchCode,
 } from '@/algorithms/searchingAlgorithms';
+import { RawBenchmarkData } from '@/components/BenchmarkModal';
+import { LogItem } from '@/components/TelemetryLog';
 
 export type AlgorithmType = 'Linear' | 'Binary' | 'Jump';
 
@@ -16,19 +18,8 @@ export function useSearchingLogic() {
   const [isBenchmarking, setIsBenchmarking] = useState(false);
   const [showQuickReport, setShowQuickReport] = useState(false);
   const [quickResults, setQuickResults] = useState<any[]>([]);
-  const [history, setHistory] = useState<
-    {
-      id: number;
-      algorithm: string;
-      size: number;
-      time: number;
-      success: boolean;
-    }[]
-  >([]);
-  const [benchmarkData, setBenchmarkData] = useState<
-    | { name: string; time: number; complexity: string; success: boolean }[]
-    | null
-  >([]);
+  const [history, setHistory] = useState<LogItem[]>([]);
+  const [benchmarkData, setBenchmarkData] = useState<RawBenchmarkData[]>([]);
 
   const getAlgoData = useCallback((type: AlgorithmType) => {
     switch (type) {
