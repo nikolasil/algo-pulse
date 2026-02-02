@@ -79,17 +79,19 @@ const STRUCTURE_MODULES: Category[] = [
 ];
 
 export default function HomePage() {
+  const scrollToContent = () => {
+    const element = document.getElementById('core-algorithms');
+    element?.scrollIntoView({ behavior: 'smooth' });
+  };
+
   return (
     <main className="min-h-screen bg-slate-950 text-slate-100 selection:bg-cyan-500/30 overflow-x-hidden">
       {/* Animated Hero Section */}
-      <div className="relative overflow-hidden border-b border-slate-900 bg-slate-950 px-6 py-32 sm:py-40">
+      <div className="relative min-h-[90vh] flex items-center justify-center overflow-hidden border-b border-slate-900 bg-slate-950 px-6 py-32 sm:py-40">
         <div className="absolute inset-0 bg-[linear-gradient(to_right,#1e293b_1px,transparent_1px),linear-gradient(to_bottom,#1e293b_1px,transparent_1px)] bg-[size:40px_40px] [mask-image:radial-gradient(ellipse_60%_50%_at_50%_0%,#000_70%,transparent_100%)] opacity-20" />
         <div className="absolute inset-0 pointer-events-none bg-gradient-to-b from-transparent via-cyan-500/5 to-transparent h-[100px] w-full animate-scanline opacity-20" />
 
         <div className="relative mx-auto max-w-5xl text-center">
-          <div className="inline-block px-3 py-1 mb-6 rounded-full border border-cyan-500/20 bg-cyan-500/5 text-[10px] font-mono tracking-[0.3em] text-cyan-400 uppercase">
-            Initializing Kernel v3.1.0
-          </div>
           <h1 className="text-6xl font-black tracking-tighter sm:text-8xl">
             ALGO{' '}
             <span className="relative inline-block">
@@ -100,16 +102,42 @@ export default function HomePage() {
             </span>
           </h1>
           <p className="mx-auto mt-8 max-w-2xl text-lg leading-relaxed text-slate-400 font-mono italic">
-            &gt; Visualizing computational complexity across the /algorithms vs
-            /structures split.
+            &gt; Visualizing computational complexity across algorithms &
+            structures.
           </p>
+
+          {/* Clickable Scroll Indicator */}
+          <button
+            onClick={scrollToContent}
+            className="group mt-16 flex flex-col items-center gap-4 mx-auto cursor-pointer transition-all duration-300"
+          >
+            <span className="text-[10px] font-black uppercase tracking-[0.4em] text-slate-500 group-hover:text-cyan-400 group-hover:drop-shadow-[0_0_8px_rgba(34,211,238,0.4)] transition-all">
+              View Modules
+            </span>
+            <div className="flex h-10 w-6 items-start justify-center rounded-full border border-slate-800 p-1 group-hover:border-cyan-500/50 transition-colors">
+              <div className="h-2 w-1 rounded-full bg-cyan-500 animate-scroll-dot" />
+            </div>
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              fill="none"
+              viewBox="0 0 24 24"
+              strokeWidth={2}
+              stroke="currentColor"
+              className="w-5 h-5 text-slate-600 animate-bounce group-hover:text-cyan-500 transition-colors"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                d="M19.5 13.5L12 21m0 0l-7.5-7.5M12 21V3"
+              />
+            </svg>
+          </button>
         </div>
       </div>
 
       {/* Grid Selection */}
       <div className="mx-auto max-w-7xl px-6 py-20 space-y-20">
-        {/* Algorithms Section */}
-        <section>
+        <section id="core-algorithms">
           <div className="mb-10 flex items-center gap-4">
             <h2 className="text-sm font-black tracking-[0.4em] uppercase text-cyan-500">
               Core Algorithms
@@ -123,7 +151,6 @@ export default function HomePage() {
           </div>
         </section>
 
-        {/* Structures Section */}
         <section>
           <div className="mb-10 flex items-center gap-4">
             <h2 className="text-sm font-black tracking-[0.4em] uppercase text-indigo-500">
@@ -139,7 +166,7 @@ export default function HomePage() {
         </section>
       </div>
 
-      {/* Footer */}
+      {/* Footer omitted for brevity but remains the same in your build */}
       <footer className="border-t border-slate-900 bg-slate-950 pb-16 pt-20">
         <div className="mx-auto max-w-7xl px-6">
           <div className="flex flex-col lg:flex-row justify-between items-start gap-12">
@@ -183,8 +210,27 @@ export default function HomePage() {
             transform: translateY(1000%);
           }
         }
+        @keyframes scroll-dot {
+          0% {
+            transform: translateY(0);
+            opacity: 0;
+          }
+          20% {
+            opacity: 1;
+          }
+          80% {
+            opacity: 1;
+          }
+          100% {
+            transform: translateY(20px);
+            opacity: 0;
+          }
+        }
         .animate-scanline {
           animation: scanline 8s linear infinite;
+        }
+        .animate-scroll-dot {
+          animation: scroll-dot 2s ease-in-out infinite;
         }
       `}</style>
     </main>
@@ -200,7 +246,7 @@ function AlgorithmCard({ category }: { category: Category }) {
       className={`group relative flex flex-col justify-between rounded-2xl border border-slate-800 bg-slate-900/30 p-8 transition-all duration-300 
         ${
           isActive
-            ? 'hover:border-cyan-500/50 hover:bg-slate-900/60 hover:-translate-y-1 hover:shadow-[0_0_30px_-10px_rgba(6,182,212,0.2)]'
+            ? 'hover:border-cyan-500/50 hover:bg-slate-900/60 hover:-translate-y-1 hover:shadow-[0_0_30px_-10px_rgba(6,182,212,0.2)] cursor-pointer'
             : 'cursor-not-allowed opacity-40 grayscale'
         }`}
     >
@@ -228,7 +274,7 @@ function AlgorithmCard({ category }: { category: Category }) {
         </div>
       </div>
 
-      <div className="mt-10 flex items-center justify-between">
+      <div className="mt-10 flex items-center justify-between border-t border-slate-800/50 pt-6">
         <div className="flex items-center gap-2">
           <span className="relative flex h-2 w-2">
             {isActive && (
@@ -245,9 +291,23 @@ function AlgorithmCard({ category }: { category: Category }) {
           </span>
         </div>
         {isActive && (
-          <span className="text-cyan-500 opacity-0 group-hover:opacity-100 transition-all">
-            →
-          </span>
+          <div className="flex items-center gap-2 text-cyan-500 transition-all duration-300 group-hover:translate-x-1">
+            <span className="text-[10px] font-bold uppercase tracking-tighter opacity-0 group-hover:opacity-100 transition-opacity">
+              Explore Module
+            </span>
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              viewBox="0 0 20 20"
+              fill="currentColor"
+              className="w-5 h-5"
+            >
+              <path
+                fillRule="evenodd"
+                d="M3 10a.75.75 0 01.75-.75h10.638L10.23 5.29a.75.75 0 111.04-1.08l5.5 5.25a.75.75 0 010 1.08l-5.5 5.25a.75.75 0 11-1.04-1.08l4.158-3.96H3.75A.75.75 0 013 10z"
+                clipRule="evenodd"
+              />
+            </svg>
+          </div>
         )}
       </div>
     </Link>
