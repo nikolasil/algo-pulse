@@ -15,19 +15,6 @@ import { AlgorithmType, useSearchingLogic } from '@/hooks/useSearchingLogic';
 export default function SearchingPage() {
   const [arraySize, setArraySize] = useState(30);
   const [target, setTarget] = useState<number>(0);
-  const [history, setHistory] = useState<
-    {
-      id: number;
-      algorithm: string;
-      size: number;
-      time: number;
-      success: boolean;
-    }[]
-  >([]);
-  const [benchmarkData, setBenchmarkData] = useState<
-    | { name: string; time: number; complexity: string; success: boolean }[]
-    | null
-  >([]);
 
   const abortBenchmarkRef = useRef(false);
   const [foundIndex, setFoundIndex] = useState<number | null>(null);
@@ -79,6 +66,10 @@ export default function SearchingPage() {
     setAlgorithm,
     isBenchmarking,
     setIsBenchmarking,
+    history,
+    setHistory,
+    benchmarkData,
+    setBenchmarkData,
     getAlgoData,
   } = useSearchingLogic();
 

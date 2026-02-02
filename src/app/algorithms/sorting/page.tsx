@@ -15,12 +15,6 @@ import { BenchmarkModal } from '@/components/BenchmarkModal';
 
 export default function SortingPage() {
   const [arraySize, setArraySize] = useState(50);
-  const [history, setHistory] = useState<
-    { id: number; algorithm: string; size: number; time: number }[]
-  >([]);
-  const [benchmarkData, setBenchmarkData] = useState<
-    { name: string; time: number; complexity: string }[] | null
-  >(null);
   const [executionTime, setExecutionTime] = useState(0);
 
   const timerIntervalRef = useRef<NodeJS.Timeout | null>(null);
@@ -33,6 +27,10 @@ export default function SortingPage() {
     setAlgorithm,
     isBenchmarking,
     setIsBenchmarking,
+    benchmarkData,
+    setBenchmarkData,
+    history,
+    setHistory,
     getAlgoData,
   } = useSortingLogic();
 
@@ -115,7 +113,12 @@ export default function SortingPage() {
     setExecutionTime(0);
 
     const algorithms: AlgorithmType[] = ['Bubble', 'Quick', 'Merge'];
-    const results: { name: string; time: number; complexity: string; size: number }[] = [];
+    const results: {
+      name: string;
+      time: number;
+      complexity: string;
+      size: number;
+    }[] = [];
     const originalArray = [...array];
     const originalSpeed = speed;
 

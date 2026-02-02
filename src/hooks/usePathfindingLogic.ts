@@ -22,8 +22,27 @@ export function usePathfindingLogic() {
   const [heuristic, setHeuristic] = useState<HeuristicType>('Manhattan');
   const [brush, setBrush] = useState<'Wall' | 'Mud'>('Wall');
   const [isBenchmarking, setIsBenchmarking] = useState(false);
-  const [benchmarkResults, setBenchmarkResults] = useState([]);
-  const [history, setHistory] = useState([]);
+  const [benchmarkResults, setBenchmarkResults] = useState<
+    | {
+        name: string;
+        time: number;
+        complexity: string;
+        success: boolean;
+        size: number;
+        pathLength?: number;
+      }[]
+    | null
+  >([]);
+  const [history, setHistory] = useState<
+    {
+      id: number;
+      algorithm: string;
+      size: number;
+      time: number;
+      success: boolean;
+      pathLength?: number;
+    }[]
+  >([]);
 
   const getAlgoData = useCallback((type: AlgorithmType) => {
     switch (type) {

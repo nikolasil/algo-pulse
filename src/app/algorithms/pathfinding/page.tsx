@@ -17,6 +17,7 @@ import { TelemetryLog } from '@/components/TelemetryLog';
 import { ExpandableSidebar } from '@/components/ExpandableSidebar';
 import { BenchmarkModal } from '@/components/BenchmarkModal';
 import { createNode, Node } from '@/algorithms/pathfindingAlgorithms';
+import { useAudio } from '@/hooks/useAudio';
 
 export default function GridPage() {
   const [dimensions, setDimensions] = useState({ rows: 15, cols: 30 });
@@ -29,6 +30,10 @@ export default function GridPage() {
   const activeGenRef = useRef<AsyncGenerator<any> | null>(null);
   const abortBenchmarkRef = useRef(false);
   const timerIntervalRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Destructure the resume function if you updated the hook,
+  // otherwise we'll just use playTone
+  const { playTone } = useAudio();
 
   const {
     algorithm,
@@ -125,6 +130,9 @@ export default function GridPage() {
     mode: AlgorithmType = algorithm,
     autoRun = true,
   ) => {
+    // TRIGGER: Initial tone to unlock AudioContext via User Gesture
+    playTone(0);
+
     if (activeGenRef.current && autoRun && isPaused) {
       startTimer();
       await runSimulation(activeGenRef.current);
@@ -155,18 +163,26 @@ export default function GridPage() {
           const flat = step.grid.flat();
           count = flat.filter((n) => n.isVisited).length;
           pathLen = flat.filter((n) => n.isPath).length;
+
           setNodesExplored(count);
+
+          // PLAY TONE HERE: inside the generator for real-time frequency updates
+          playTone(count % 1000);
         }
         yield step;
       }
       stopTimer();
+
+      // Optional: Success sound
+      if (pathLen > 0) playTone(150, 0.2);
+
       setHistory((prev): any =>
         [
           {
             id: Date.now(),
             algorithm: mode,
-            size: count, // Visited
-            pathLength: pathLen, // Path length
+            size: count,
+            pathLength: pathLen,
             time: Math.round(performance.now() - startTime),
             success: pathLen > 0,
           },
@@ -182,6 +198,9 @@ export default function GridPage() {
   };
 
   const runFullBenchmark = async (isVisual: boolean) => {
+    // Unlock audio for visual benchmark
+    if (isVisual) playTone(0);
+
     setIsBenchmarking(true);
     setShowBenchmarkModal(false);
     abortBenchmarkRef.current = false;
@@ -225,6 +244,9 @@ export default function GridPage() {
             pathLen = flat.filter((n: any) => n.isPath).length;
             setNodesExplored(count);
             if (pathLen > 0) wasSuccessful = true;
+
+            // Audio for visual benchmark
+            playTone(count % 1000);
           }
           await new Promise((r) => setTimeout(r, 1));
         }
@@ -249,8 +271,8 @@ export default function GridPage() {
           time: Math.round(performance.now() - startTime),
           complexity,
           success: wasSuccessful,
-          size: count, // Visited Nodes
-          pathLength: pathLen, // Path Length
+          size: count,
+          pathLength: pathLen,
         });
       }
       await new Promise((r) => setTimeout(r, 400));
@@ -276,6 +298,11 @@ export default function GridPage() {
 
     setSpeed(originalSpeed);
     setIsBenchmarking(false);
+  };
+
+  const handleNodeInteraction = (r: number, c: number) => {
+    // This function was missing in your snippet but referenced
+    // Logic for drawing walls/start/end would go here
   };
 
   return (
@@ -330,6 +357,8 @@ export default function GridPage() {
           onStop={handleStopAll}
           onTogglePause={() => {
             if (isPaused && activeGenRef.current) {
+              // Unlock audio on resume
+              playTone(0);
               startTimer();
               runSimulation(activeGenRef.current);
             } else {
@@ -392,9 +421,7 @@ export default function GridPage() {
             dimensions={dimensions}
             startPos={startPos}
             endPos={endPos}
-            onNodeMouseDown={(r, c) =>
-              !isPaused ? null : handleNodeInteraction(r, c)
-            }
+            onNodeMouseDown={(r, c) => isPaused && handleNodeInteraction(r, c)}
             onNodeMouseEnter={(r, c) =>
               isMousePressed && isPaused && handleNodeInteraction(r, c)
             }

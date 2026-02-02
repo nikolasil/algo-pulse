@@ -16,6 +16,19 @@ export function useSearchingLogic() {
   const [isBenchmarking, setIsBenchmarking] = useState(false);
   const [showQuickReport, setShowQuickReport] = useState(false);
   const [quickResults, setQuickResults] = useState<any[]>([]);
+  const [history, setHistory] = useState<
+    {
+      id: number;
+      algorithm: string;
+      size: number;
+      time: number;
+      success: boolean;
+    }[]
+  >([]);
+  const [benchmarkData, setBenchmarkData] = useState<
+    | { name: string; time: number; complexity: string; success: boolean }[]
+    | null
+  >([]);
 
   const getAlgoData = useCallback((type: AlgorithmType) => {
     switch (type) {
@@ -43,6 +56,10 @@ export function useSearchingLogic() {
     setIsBenchmarking,
     showQuickReport,
     setShowQuickReport,
+    history,
+    setHistory,
+    benchmarkData,
+    setBenchmarkData,
     quickResults,
     setQuickResults,
     getAlgoData,
