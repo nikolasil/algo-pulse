@@ -5,7 +5,7 @@ import { useAlgorithm } from '@/hooks/useAlgorithm';
 import { CodeViewer } from '@/components/CodeViewer';
 import { ControlPanel } from '@/components/ControlPanel';
 import { NavHeader } from '@/components/NavHeader';
-import { TreeVisualizer } from '@/components/TreeVisualizer';
+import { TreeVisualizer } from '@/components/vizualizer/TreeVisualizer';
 import { TelemetryLog } from '@/components/TelemetryLog';
 import { ExpandableSidebar } from '@/components/ExpandableSidebar';
 

@@ -6,7 +6,7 @@ import { useSortingLogic, AlgorithmType } from '@/hooks/useSortingLogic';
 
 import { ControlPanel } from '@/components/ControlPanel';
 import { CodeViewer } from '@/components/CodeViewer';
-import { VisualizerBar } from '@/components/VisualizerBar';
+import { VisualizerBar } from '@/components/vizualizer/BarVizualizer';
 import { NavHeader } from '@/components/NavHeader';
 import { StatCard } from '@/components/StatCard';
 import { TelemetryLog } from '@/components/TelemetryLog';

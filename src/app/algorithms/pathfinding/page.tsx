@@ -11,7 +11,7 @@ import {
 import { CodeViewer } from '@/components/CodeViewer';
 import { ControlPanel } from '@/components/ControlPanel';
 import { NavHeader } from '@/components/NavHeader';
-import { GridVisualizer } from '@/components/GridVisualizer';
+import { GridVisualizer } from '@/components/vizualizer/GridVisualizer';
 import { StatCard } from '@/components/StatCard';
 import { TelemetryLog } from '@/components/TelemetryLog';
 import { ExpandableSidebar } from '@/components/ExpandableSidebar';
@@ -24,12 +24,13 @@ import {
 import { useAudio } from '@/hooks/useAudio';
 
 export default function GridPage() {
-  const [dimensions, setDimensions] = useState({ rows: 15, cols: 31 }); // Odd numbers work best for mazes
+  const [dimensions, setDimensions] = useState({ rows: 15, cols: 30 });
   const [grid, setGrid] = useState<Node[][]>([]);
   const [isMousePressed, setIsMousePressed] = useState(false);
   const [showBenchmarkModal, setShowBenchmarkModal] = useState(false);
   const [executionTime, setExecutionTime] = useState(0);
   const [nodesExplored, setNodesExplored] = useState(0);
+  const [isMobileView, setIsMobileView] = useState(false); // Track mobile state globally in component
 
   const activeGenRef = useRef<AsyncGenerator<any> | null>(null);
   const abortBenchmarkRef = useRef(false);
@@ -73,6 +74,12 @@ export default function GridPage() {
     col: dimensions.cols - 2,
   };
 
+  useEffect(() => {
+    const width = window.innerWidth;
+    const mobile = width < 768;
+    setIsMobileView(mobile);
+  }, []);
+
   const startTimer = () => {
     stopTimer();
     const startTime = Date.now() - executionTime;
@@ -100,7 +107,6 @@ export default function GridPage() {
         ),
       );
     },
-    // eslint-disable-next-line react-hooks/exhaustive-deps
     [stopSimulation],
   );
 
@@ -154,7 +160,6 @@ export default function GridPage() {
 
   const handleGenerateMaze = () => {
     handleStopAll();
-    // Start with all walls
     const newGrid = Array.from({ length: dimensions.rows }, (_, r) =>
       Array.from({ length: dimensions.cols }, (_, c) => {
         const node = createNode(r, c);
@@ -173,7 +178,6 @@ export default function GridPage() {
       const [r, c] = stack[stack.length - 1];
       const neighbors: [number, number, number, number][] = [];
 
-      // Check neighbors 2 units away
       [
         [0, 2],
         [0, -2],
@@ -204,10 +208,8 @@ export default function GridPage() {
       }
     }
 
-    // Ensure start and end are clear
     newGrid[startPos.row][startPos.col].isWall = false;
     newGrid[endPos.row][endPos.col].isWall = false;
-
     setGrid(newGrid);
   };
 
@@ -216,7 +218,6 @@ export default function GridPage() {
     autoRun = true,
   ) => {
     playTone(0);
-
     if (activeGenRef.current && autoRun && isPaused) {
       startTimer();
       await runSimulation(activeGenRef.current);
@@ -290,16 +291,11 @@ export default function GridPage() {
 
     for (const algo of algos) {
       if (abortBenchmarkRef.current) break;
-
-      // Determine variants (one for basic algos, three for heuristic ones)
       const variants = algo === 'A*' || algo === 'Greedy' ? heuristics : [null];
-
       for (const hVariant of variants) {
         if (abortBenchmarkRef.current) break;
-
         setAlgorithm(algo);
         if (hVariant) setHeuristic(hVariant);
-
         setNodesExplored(0);
         setExecutionTime(0);
         startTimer();
@@ -371,10 +367,10 @@ export default function GridPage() {
   };
 
   return (
-    <main className="flex min-h-screen bg-slate-950 text-slate-100 overflow-hidden">
+    <main className="flex flex-col lg:flex-row min-h-screen bg-slate-950 text-slate-100 overflow-x-hidden">
       <ExpandableSidebar>
         <NavHeader title="Pathfinding Pulse" subtitle="Diagnostic Engine" />
-        <section className="space-y-4">
+        <section className="space-y-4 pb-20 lg:pb-0">
           <div className="space-y-4">
             <h2 className="text-[10px] font-bold text-slate-400 tracking-widest uppercase">
               Select Algorithm
@@ -420,15 +416,17 @@ export default function GridPage() {
               </div>
             )}
           </div>
-          <CodeViewer
-            code={getAlgoData(algorithm).code}
-            activeLine={activeLine}
-          />
+          <div>
+            <CodeViewer
+              code={getAlgoData(algorithm).code}
+              activeLine={activeLine}
+            />
+          </div>
           <TelemetryLog history={history} />
         </section>
       </ExpandableSidebar>
 
-      <section className="flex-1 p-6 flex flex-col gap-6">
+      <section className="flex-1 p-3 sm:p-6 flex flex-col gap-4 sm:gap-6 overflow-y-auto">
         <ControlPanel
           size={dimensions.cols}
           sizeShower={true}
@@ -439,9 +437,19 @@ export default function GridPage() {
           brush={brush}
           onBrushChange={setBrush}
           onSpeedChange={setSpeed}
-          onSizeChange={(val) =>
-            setDimensions({ rows: Math.floor(val / 2) | 1, cols: val | 1 })
-          }
+          onSizeChange={(val) => {
+            if (isMobileView) {
+              setDimensions({
+                rows: val | 1,
+                cols: Math.floor(val / 2) | 1,
+              });
+            } else {
+              setDimensions({
+                rows: Math.floor(val / 2) | 1,
+                cols: val | 1,
+              });
+            }
+          }}
           onExecute={() => handleExecute(algorithm, true)}
           onStop={handleStopAll}
           onTogglePause={() => {
@@ -467,7 +475,7 @@ export default function GridPage() {
           onVisualRun={() => runFullBenchmark(true)}
         />
 
-        <div className="grid grid-cols-2 lg:grid-cols-6 gap-4">
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-2 sm:gap-4">
           <StatCard label="Algorithm" value={algorithm} highlight={true} />
           <StatCard
             label="Heuristic"
@@ -476,7 +484,7 @@ export default function GridPage() {
             }
           />
           <StatCard
-            label="Exec Time"
+            label="Time"
             value={(executionTime / 1000).toFixed(2) + 's'}
             highlight={!!timerIntervalRef.current}
           />
@@ -485,18 +493,17 @@ export default function GridPage() {
             value={nodesExplored}
             highlight={nodesExplored > 0}
           />
-          <StatCard
-            label="Grid Units"
-            value={dimensions.rows * dimensions.cols}
-          />
-          <StatCard label="Cycle Speed" value={`${speed}ms`} />
+          <StatCard label="Units" value={dimensions.rows * dimensions.cols} />
+          <StatCard label="Speed" value={`${speed}ms`} />
         </div>
 
         <div
-          className="flex-1 bg-slate-950 border border-slate-800 rounded-3xl flex items-center justify-center overflow-hidden relative cursor-crosshair"
+          className="flex-1 bg-slate-950 border border-slate-800 rounded-2xl sm:rounded-3xl flex items-center justify-center overflow-hidden relative cursor-crosshair touch-none min-h-[450px]"
           onMouseDown={() => setIsMousePressed(true)}
           onMouseUp={() => setIsMousePressed(false)}
           onMouseLeave={() => setIsMousePressed(false)}
+          onTouchStart={() => setIsMousePressed(true)}
+          onTouchEnd={() => setIsMousePressed(false)}
         >
           <GridVisualizer
             grid={grid}

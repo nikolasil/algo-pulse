@@ -4,7 +4,7 @@ import { useAlgorithm } from '@/hooks/useAlgorithm';
 import { useAudio } from '@/hooks/useAudio';
 import { ControlPanel } from '@/components/ControlPanel';
 import { CodeViewer } from '@/components/CodeViewer';
-import { VisualizerBar } from '@/components/VisualizerBar';
+import { VisualizerBar } from '@/components/vizualizer/BarVizualizer';
 import { NavHeader } from '@/components/NavHeader';
 import { StatCard } from '@/components/StatCard';
 import { TelemetryLog } from '@/components/TelemetryLog';
