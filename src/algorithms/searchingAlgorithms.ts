@@ -1,3 +1,10 @@
+export interface SearchStep {
+  line: number;
+  comparing?: number[];
+  range?: [number, number];
+  found?: number;
+}
+
 // --- LINEAR SEARCH ---
 export const linearSearchCode = `function linearSearch(arr, target) {
   for (let i = 0; i < arr.length; i++) {
@@ -9,7 +16,7 @@ export const linearSearchCode = `function linearSearch(arr, target) {
 export async function* linearSearch(
   array: number[],
   target: number,
-): AsyncGenerator<any> {
+): AsyncGenerator<SearchStep> {
   for (let i = 0; i < array.length; i++) {
     // Highlight the loop iteration
     yield { line: 2, comparing: [i] };
@@ -39,14 +46,14 @@ export const binarySearchCode = `function binarySearch(arr, target) {
 export async function* binarySearch(
   array: number[],
   target: number,
-): AsyncGenerator<any> {
+): AsyncGenerator<SearchStep> {
   let low = 0,
     high = array.length - 1;
   yield { line: 2 };
 
   while (low <= high) {
     yield { line: 3, range: [low, high] };
-    let mid = Math.floor((low + high) / 2);
+    const mid = Math.floor((low + high) / 2);
     yield { line: 4, comparing: [mid] };
 
     if (array[mid] === target) {
@@ -86,8 +93,8 @@ export const jumpSearchCode = `function jumpSearch(arr, target) {
 export async function* jumpSearch(
   array: number[],
   target: number,
-): AsyncGenerator<any> {
-  let n = array.length;
+): AsyncGenerator<SearchStep> {
+  const n = array.length;
   let step = Math.floor(Math.sqrt(n));
   let prev = 0;
 
