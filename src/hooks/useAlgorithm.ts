@@ -58,7 +58,7 @@ export const useAlgorithm = (initialArray: number[]) => {
       algoGenerator: AsyncGenerator<any>,
       onStep?: (val: number) => void,
     ) => {
-      if (isRunningRef.current) {
+      if (isRunningRef.current && generatorRef.current === algoGenerator) {
         pauseRef.current = false;
         setIsPaused(false);
         return;
@@ -98,15 +98,13 @@ export const useAlgorithm = (initialArray: number[]) => {
         await sleep();
       }
 
+      // Logic updated: Cleanup state when finished to reset UI buttons
       if (!stopRef.current) {
-        setActiveLine(0);
-        setComparing([]);
-        setIsPaused(true);
-        pauseRef.current = true;
+        stopSimulation();
       }
       isRunningRef.current = false;
     },
-    [updateArray],
+    [updateArray, stopSimulation],
   );
 
   const stepForward = useCallback(async () => {
@@ -131,8 +129,11 @@ export const useAlgorithm = (initialArray: number[]) => {
       updateArray(state.array);
       setComparing(state.comparing);
       setActiveLine(state.line);
+    } else if (done) {
+      // Reset if we manually step to the end
+      stopSimulation();
     }
-  }, [updateArray]);
+  }, [updateArray, stopSimulation]);
 
   const stepBackward = useCallback(() => {
     if (currentStepIdx.current > 0) {
