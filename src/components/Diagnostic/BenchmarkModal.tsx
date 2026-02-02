@@ -1,27 +1,40 @@
 'use client';
+import { useMemo } from 'react';
 
-interface EnhancedBenchmarkResult {
+interface RawBenchmarkData {
   name: string;
   time: number;
   complexity: string;
-  isFastest: boolean;
-  delta: string;
 }
 
 interface BenchmarkModalProps {
-  results: EnhancedBenchmarkResult[];
+  data: RawBenchmarkData[];
   arraySize: number;
   onClose: () => void;
   onReRun: () => void;
 }
 
 export function BenchmarkModal({
-  results,
+  data,
   arraySize,
   onClose,
   onReRun,
 }: BenchmarkModalProps) {
+  // Logic: Calculate performance metrics locally
+  const results = useMemo(() => {
+    const fastestTime = Math.min(...data.map((r) => r.time));
+    return data.map((r) => ({
+      ...r,
+      isFastest: r.time === fastestTime,
+      delta:
+        r.time === fastestTime
+          ? 'FASTEST'
+          : `+${(((r.time - fastestTime) / fastestTime) * 100).toFixed(0)}%`,
+    }));
+  }, [data]);
+
   const maxTime = Math.max(...results.map((r) => r.time));
+  const fastestAlgo = results.find((r) => r.isFastest);
 
   return (
     <div className="fixed inset-0 z-[200] flex items-center justify-center p-4">
@@ -29,7 +42,6 @@ export function BenchmarkModal({
         className="absolute inset-0 bg-slate-950/90 backdrop-blur-md animate-in fade-in duration-300"
         onClick={onClose}
       />
-
       <div className="relative bg-slate-900 border border-slate-700 w-full max-w-4xl max-h-[90vh] sm:rounded-3xl shadow-2xl overflow-hidden flex flex-col animate-in zoom-in-95 duration-300">
         <div className="px-6 py-4 border-b border-slate-800 flex justify-between items-center bg-slate-900/50">
           <h3 className="text-lg font-bold text-white tracking-tight flex items-center gap-3">
@@ -45,7 +57,7 @@ export function BenchmarkModal({
 
         <div className="flex-1 overflow-y-auto p-6">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-start">
-            {/* Left: Bar Chart Section */}
+            {/* Left: Efficiency Chart */}
             <div className="space-y-6">
               <div className="flex justify-between items-end border-b border-slate-800 pb-2">
                 <h4 className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">
@@ -80,14 +92,13 @@ export function BenchmarkModal({
 
               <div className="bg-amber-500/5 border border-amber-500/20 rounded-xl p-3">
                 <p className="text-[9px] text-amber-500/80 font-medium leading-relaxed uppercase tracking-wide">
-                  <span className="font-bold">Advice:</span>{' '}
-                  {results.find((r) => r.isFastest)?.name} is the optimal choice
-                  for this {arraySize} unit set.
+                  <span className="font-bold">Advice:</span> {fastestAlgo?.name}{' '}
+                  is the optimal choice for this {arraySize} unit set.
                 </p>
               </div>
             </div>
 
-            {/* Right: Stats Grid Section */}
+            {/* Right: Engine Data */}
             <div className="space-y-3">
               <div className="flex justify-between items-end border-b border-slate-800 pb-2 mb-4">
                 <h4 className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">

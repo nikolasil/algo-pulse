@@ -18,7 +18,9 @@ interface ControlPanelProps {
   onStepForward: () => void;
   onShuffle: () => void;
   onGenerate: () => void;
-  onGeneratePattern: (pattern: 'nearly' | 'reversed' | 'few-unique') => void;
+  onGeneratePattern: (
+    pattern: 'nearly' | 'reversed' | 'sorted' | 'few-unique',
+  ) => void;
   onManualUpdate: (input: string) => void;
   onQuickBenchmark: () => void;
   onVisualRun: () => void;
@@ -88,7 +90,7 @@ export const ControlPanel = ({
     <div className="flex flex-col gap-4 bg-slate-900/50 p-5 rounded-2xl border border-slate-800 w-full relative z-10">
       {(showBenchmarkMenu || showDataMenu) && (
         <div
-          className="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-[95] sm:hidden animate-in fade-in duration-200"
+          className="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-[95] sm:hidden"
           onClick={closeAll}
         />
       )}
@@ -155,12 +157,12 @@ export const ControlPanel = ({
                 setShowDataMenu(!showDataMenu);
               }}
               disabled={isLocked}
-              className={`px-4 h-10 rounded-lg border uppercase text-[9px] font-bold transition-all flex items-center gap-2 ${showDataMenu ? 'bg-cyan-900/40 border-cyan-500 text-cyan-400' : 'bg-slate-800 border-slate-600 text-slate-200 hover:bg-slate-700'}`}
+              className={`px-4 h-10 rounded-lg border uppercase text-[9px] font-bold transition-all ${showDataMenu ? 'bg-cyan-900/40 border-cyan-500 text-cyan-400' : 'bg-slate-800 border-slate-600 text-slate-200 hover:bg-slate-700'}`}
             >
               📊 Data
             </button>
             {showDataMenu && (
-              <div className="fixed sm:absolute top-1/3 sm:top-full left-1/2 sm:left-0 -translate-x-1/2 sm:translate-x-0 mt-0 sm:mt-2 w-[90vw] max-w-72 bg-slate-900 border border-slate-700 rounded-2xl shadow-2xl z-[100] p-5 animate-in fade-in zoom-in-95 duration-200 backdrop-blur-xl bg-slate-900/98">
+              <div className="fixed sm:absolute top-1/3 sm:top-full left-1/2 sm:left-0 -translate-x-1/2 sm:translate-x-0 mt-0 sm:mt-2 w-[90vw] max-w-72 bg-slate-900 border border-slate-700 rounded-2xl shadow-2xl z-[100] p-5 backdrop-blur-xl bg-slate-900/98 animate-in fade-in zoom-in-95 duration-200">
                 <div className="flex justify-between items-center mb-4 sm:hidden">
                   <span className="text-[10px] font-bold uppercase text-cyan-400">
                     Data Labs
@@ -225,32 +227,34 @@ export const ControlPanel = ({
                       onClick={onGenerate}
                       className="bg-slate-800 hover:bg-slate-700 py-3 rounded-lg text-[8px] font-bold uppercase"
                     >
-                      Random
+                      Generate Random
                     </button>
-
-                    {/* Sorting Specific Patterns */}
-                    {!isSearch && (
-                      <>
-                        <button
-                          onClick={() => onGeneratePattern('nearly')}
-                          className="bg-slate-800 hover:bg-slate-700 py-3 rounded-lg text-[8px] font-bold uppercase"
-                        >
-                          Nearly
-                        </button>
-                        <button
-                          onClick={() => onGeneratePattern('reversed')}
-                          className="bg-slate-800 hover:bg-slate-700 py-3 rounded-lg text-[8px] font-bold uppercase"
-                        >
-                          Reversed
-                        </button>
-                        <button
-                          onClick={() => onGeneratePattern('few-unique')}
-                          className="bg-slate-800 hover:bg-slate-700 py-3 rounded-lg text-[8px] font-bold uppercase col-span-2 text-amber-400"
-                        >
-                          Few Unique
-                        </button>
-                      </>
-                    )}
+                    <>
+                      <button
+                        onClick={() => onGeneratePattern('reversed')}
+                        className="bg-slate-800 hover:bg-slate-700 py-3 rounded-lg text-[8px] font-bold uppercase"
+                      >
+                        Generate Reversed Sorted
+                      </button>
+                      <button
+                        onClick={() => onGeneratePattern('sorted')}
+                        className="bg-slate-800 hover:bg-slate-700 py-3 rounded-lg text-[8px] font-bold uppercase"
+                      >
+                        Generate Sorted
+                      </button>
+                      <button
+                        onClick={() => onGeneratePattern('nearly')}
+                        className="bg-slate-800 hover:bg-slate-700 py-3 rounded-lg text-[8px] font-bold uppercase"
+                      >
+                        Generate Nearly Sorted
+                      </button>
+                      <button
+                        onClick={() => onGeneratePattern('few-unique')}
+                        className="bg-slate-800 hover:bg-slate-700 py-3 rounded-lg text-[8px] font-bold uppercase"
+                      >
+                        Generate Few Unique
+                      </button>
+                    </>
                   </div>
                 </div>
               </div>
@@ -269,7 +273,7 @@ export const ControlPanel = ({
               Compare
             </button>
             {showBenchmarkMenu && (
-              <div className="fixed sm:absolute top-1/3 sm:top-full left-1/2 sm:left-0 -translate-x-1/2 sm:translate-x-0 mt-0 sm:mt-2 w-[80vw] max-w-48 bg-slate-900 border border-slate-700 rounded-2xl shadow-2xl z-[100] overflow-hidden flex flex-col p-1 animate-in fade-in zoom-in-95 duration-200 backdrop-blur-xl bg-slate-900/98">
+              <div className="fixed sm:absolute top-1/3 sm:top-full left-1/2 sm:left-0 -translate-x-1/2 sm:translate-x-0 mt-0 sm:mt-2 w-[80vw] max-w-48 bg-slate-900 border border-slate-700 rounded-2xl shadow-2xl z-[100] overflow-hidden flex flex-col p-1 backdrop-blur-xl bg-slate-900/98 animate-in fade-in zoom-in-95 duration-200">
                 <button
                   onClick={() => {
                     onQuickBenchmark();

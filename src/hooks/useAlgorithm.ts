@@ -27,15 +27,6 @@ export const useAlgorithm = (initialArray: number[]) => {
     speedRef.current = val;
   }, []);
 
-  const sleep = (ms?: number) =>
-    new Promise((resolve) => setTimeout(resolve, ms ?? speedRef.current));
-
-  const checkPause = async () => {
-    while (pauseRef.current && !stopRef.current) {
-      await new Promise((resolve) => setTimeout(resolve, 100));
-    }
-  };
-
   const stopSimulation = useCallback(() => {
     stopRef.current = true;
     pauseRef.current = false;
@@ -48,10 +39,83 @@ export const useAlgorithm = (initialArray: number[]) => {
     currentStepIdx.current = -1;
   }, []);
 
+  // --- Data Generation Logic ---
+  const generateRandom = useCallback(
+    (size: number) => {
+      stopSimulation();
+      const newArray = Array.from(
+        { length: size },
+        () => Math.floor(Math.random() * 90) + 5,
+      );
+      updateArray(newArray);
+    },
+    [updateArray, stopSimulation],
+  );
+
+  const generatePattern = useCallback(
+    (size: number, pattern: 'nearly' | 'reversed' | 'sorted' | 'few-unique') => {
+      stopSimulation();
+      let newArr = Array.from(
+        { length: size },
+        (_, i) => Math.floor((i / size) * 90) + 5,
+      );
+
+      if (pattern === 'nearly') {
+        for (let i = 0; i < newArr.length; i++) {
+          if (Math.random() > 0.8) {
+            const j = Math.floor(Math.random() * newArr.length);
+            [newArr[i], newArr[j]] = [newArr[j], newArr[i]];
+          }
+        }
+      } else if (pattern === 'reversed') {
+        newArr.reverse();
+      } else if (pattern === 'sorted') {
+        newArr.sort((a, b) => a - b);
+      } else if (pattern === 'few-unique') {
+        const values = [20, 40, 60, 80];
+        newArr = Array.from(
+          { length: size },
+          () => values[Math.floor(Math.random() * values.length)],
+        );
+      }
+      updateArray(newArr);
+    },
+    [updateArray, stopSimulation],
+  );
+
+  const shuffleArray = useCallback(() => {
+    stopSimulation();
+    const shuffled = [...arrayRef.current].sort(() => Math.random() - 0.5);
+    updateArray(shuffled);
+  }, [updateArray, stopSimulation]);
+
+  // --- Execution Logic ---
+  const sleep = (ms?: number) =>
+    new Promise((resolve) => setTimeout(resolve, ms ?? speedRef.current));
+
+  const checkPause = async () => {
+    while (pauseRef.current && !stopRef.current) {
+      await new Promise((resolve) => setTimeout(resolve, 100));
+    }
+  };
+
   const togglePause = useCallback(() => {
     pauseRef.current = !pauseRef.current;
     setIsPaused(pauseRef.current);
   }, []);
+
+  const startStepByStep = useCallback(
+    (algoGenerator: AsyncGenerator<any>) => {
+      stopSimulation();
+      stopRef.current = false;
+      pauseRef.current = true;
+      setIsPaused(true);
+      generatorRef.current = algoGenerator;
+      historyRef.current = [];
+      currentStepIdx.current = -1;
+    },
+    [stopSimulation],
+  );
 
   const runSimulation = useCallback(
     async (
@@ -98,10 +162,7 @@ export const useAlgorithm = (initialArray: number[]) => {
         await sleep();
       }
 
-      // Logic updated: Cleanup state when finished to reset UI buttons
-      if (!stopRef.current) {
-        stopSimulation();
-      }
+      if (!stopRef.current) stopSimulation();
       isRunningRef.current = false;
     },
     [updateArray, stopSimulation],
@@ -130,7 +191,6 @@ export const useAlgorithm = (initialArray: number[]) => {
       setComparing(state.comparing);
       setActiveLine(state.line);
     } else if (done) {
-      // Reset if we manually step to the end
       stopSimulation();
     }
   }, [updateArray, stopSimulation]);
@@ -151,13 +211,18 @@ export const useAlgorithm = (initialArray: number[]) => {
     comparing,
     activeLine,
     isPaused,
+    hasGenerator: !!generatorRef.current,
     togglePause,
     speed,
     setSpeed: handleSetSpeed,
     runSimulation,
     stopSimulation,
+    startStepByStep,
     stepForward,
     stepBackward,
+    generateRandom,
+    generatePattern,
+    shuffleArray,
     generatorRef,
   };
 };

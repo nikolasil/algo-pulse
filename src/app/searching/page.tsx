@@ -22,23 +22,19 @@ import {
 
 type SearchAlgo = 'Linear' | 'Binary' | 'Jump';
 
-interface EnhancedBenchmarkResult {
-  name: string;
-  time: number;
-  complexity: string;
-  isFastest: boolean;
-  delta: string;
-}
-
 export default function SearchingPage() {
   const [arraySize, setArraySize] = useState(30);
   const [target, setTarget] = useState<number>(0);
   const [algorithm, setAlgorithm] = useState<SearchAlgo>('Linear');
-  const [history, setHistory] = useState<any[]>([]);
+  const [history, setHistory] = useState<
+    { id: number; algorithm: string; size: number; time: number }[]
+  >([]);
   const [isBenchmarking, setIsBenchmarking] = useState(false);
-  const [benchmarkResults, setBenchmarkResults] = useState<
-    EnhancedBenchmarkResult[] | null
+  const [benchmarkData, setBenchmarkData] = useState<
+    { name: string; time: number; complexity: string }[] | null
   >(null);
+
+  const abortBenchmarkRef = useRef(false);
   const [foundIndex, setFoundIndex] = useState<number | null>(null);
   const [searchRange, setSearchRange] = useState<[number, number] | null>(null);
 
@@ -46,31 +42,42 @@ export default function SearchingPage() {
   const abortRef = useRef(false);
 
   const { playTone } = useAudio();
-  const algoTools = useAlgorithm([]);
 
   const {
     array,
     setArray,
-    speed,
+    isPaused,
     setSpeed,
+    speed,
     comparing,
     activeLine,
     runSimulation,
     stopSimulation,
-    isPaused,
-    hasGenerator,
     togglePause,
     stepForward,
     stepBackward,
     startStepByStep,
-  } = algoTools;
+    hasGenerator,
+    generateRandom,
+    generatePattern,
+    shuffleArray,
+    generatorRef,
+  } = useAlgorithm([]);
 
+  // Initialization: Match the sorting page pattern
   useEffect(() => {
     if (!hasInitialized.current) {
-      handleGenerate();
+      generateRandom(arraySize);
       hasInitialized.current = true;
     }
-  }, []);
+  }, [generateRandom, arraySize]);
+
+  // Ensure target is always valid for the current array
+  useEffect(() => {
+    if (array.length > 0 && !hasGenerator) {
+      setTarget(array[Math.floor(Math.random() * array.length)]);
+    }
+  }, [array, hasGenerator]);
 
   const getAlgoData = useCallback((type: SearchAlgo) => {
     switch (type) {
@@ -91,29 +98,24 @@ export default function SearchingPage() {
     }
   }, []);
 
-  const handleGenerate = () => {
+  const handleStopAll = () => {
+    abortBenchmarkRef.current = true;
+    stopTimer();
     stopSimulation();
-    const newArr = Array.from(
-      { length: arraySize },
-      () => Math.floor(Math.random() * 90) + 10,
-    ).sort((a, b) => a - b);
-    setArray(newArr);
-    setTarget(newArr[Math.floor(Math.random() * newArr.length)]);
-    setFoundIndex(null);
-    setSearchRange(null);
+    setIsBenchmarking(false);
   };
 
-  const handleShuffle = () => {
-    stopSimulation();
-    const shuffled = [...array]
-      .map((value) => ({ value, sort: Math.random() }))
-      .sort((a, b) => a.sort - b.sort)
-      .map(({ value }) => value)
-      .sort((a, b) => a - b);
-
-    setArray(shuffled);
-    setFoundIndex(null);
-    setSearchRange(null);
+  const handleManualUpdate = (input: string) => {
+    try {
+      const parsed = JSON.parse(input);
+      if (Array.isArray(parsed) && parsed.every((n) => typeof n === 'number')) {
+        handleStopAll();
+        setArray(parsed);
+        setArraySize(parsed.length);
+      }
+    } catch (e) {
+      console.error('Invalid array format');
+    }
   };
 
   const createWrappedGenerator = useCallback(() => {
@@ -127,6 +129,26 @@ export default function SearchingPage() {
     };
   }, [algorithm, array, target, getAlgoData]);
 
+  const timerIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const [executionTime, setExecutionTime] = useState(0);
+
+  const startTimer = () => {
+    stopTimer();
+    setExecutionTime(0);
+    const startTime = Date.now();
+    timerIntervalRef.current = setInterval(
+      () => setExecutionTime(Date.now() - startTime),
+      10,
+    );
+  };
+
+  const stopTimer = () => {
+    if (timerIntervalRef.current) {
+      clearInterval(timerIntervalRef.current);
+      timerIntervalRef.current = null;
+    }
+  };
+
   const handleExecute = async () => {
     setFoundIndex(null);
     setSearchRange(null);
@@ -136,18 +158,15 @@ export default function SearchingPage() {
     await runSimulation(wrapped(), (val) => playTone(val));
     const duration = Math.round(performance.now() - startTime);
 
-    setHistory((prev) =>
-      [
-        {
-          id: Date.now(),
-          algorithm: algorithm,
-          size: array.length,
-          time: duration,
-          status: foundIndex !== null ? 'SUCCESS' : 'COMPLETE',
-        },
-        ...prev,
-      ].slice(0, 10),
-    );
+    setHistory((prev) => [
+      {
+        id: Date.now(),
+        algorithm: algorithm,
+        size: array.length,
+        time: duration,
+      },
+      ...prev,
+    ]);
   };
 
   const runFullBenchmark = async (isVisual: boolean) => {
@@ -155,7 +174,7 @@ export default function SearchingPage() {
     abortRef.current = false;
     stopSimulation();
     const algos: SearchAlgo[] = ['Linear', 'Binary', 'Jump'];
-    const rawResults: any[] = [];
+    const results: { name: string; time: number; complexity: string }[] = [];
     const originalSpeed = speed;
 
     for (const algo of algos) {
@@ -175,26 +194,29 @@ export default function SearchingPage() {
         let res = await it.next();
         while (!res.done && !abortRef.current) res = await it.next();
       }
-      rawResults.push({
-        name: algo,
-        time: Math.round(performance.now() - startTime),
-        complexity,
-      });
+
+      if (!abortRef.current) {
+        const duration = Math.round(performance.now() - startTime);
+        results.push({
+          name: algo,
+          time: duration,
+          complexity,
+        });
+      }
       await new Promise((r) => setTimeout(r, 400));
     }
 
     if (!abortRef.current) {
-      const fastest = Math.min(...rawResults.map((r) => r.time));
-      setBenchmarkResults(
-        rawResults.map((r) => ({
-          ...r,
-          isFastest: r.time === fastest,
-          delta:
-            r.time === fastest
-              ? 'OPTIMAL'
-              : `+${(((r.time - fastest) / (fastest || 1)) * 100).toFixed(0)}%`,
+      setBenchmarkData(results);
+      setHistory((prev) => [
+        ...results.map((r) => ({
+          id: Date.now() + Math.random(),
+          algorithm: r.name,
+          size: array.length,
+          time: r.time,
         })),
-      );
+        ...prev,
+      ]);
     }
     setSpeed(originalSpeed);
     setIsBenchmarking(false);
@@ -236,52 +258,40 @@ export default function SearchingPage() {
 
       <section className="flex-1 p-4 sm:p-6 lg:p-10 flex flex-col gap-6 relative min-w-0">
         <ControlPanel
+          isSearch={true}
+          targetValue={target}
+          onTargetChange={setTarget}
           size={arraySize}
           sizeShower={true}
           speed={speed}
           isPaused={isPaused}
           isBenchmarking={isBenchmarking}
+          hasGenerator={hasGenerator}
           currentArray={array}
-          isSearch={true}
-          targetValue={target}
-          onTargetChange={setTarget}
           onSpeedChange={setSpeed}
           onSizeChange={(n) => {
             setArraySize(n);
-            handleGenerate();
-          }}
-          onShuffle={handleShuffle}
-          onGenerate={handleGenerate}
-          onQuickBenchmark={() => runFullBenchmark(false)}
-          onVisualRun={() => runFullBenchmark(true)}
-          onExecute={handleExecute}
-          onGeneratePattern={() => {}}
-          onManualUpdate={(input) => {
-            const parsed = input
-              .replace(/[\[\]]/g, '')
-              .split(',')
-              .map(Number)
-              .filter((n) => !isNaN(n));
-            setArray(parsed.sort((a, b) => a - b));
-          }}
-          hasGenerator={hasGenerator}
-          onStartStepByStep={() => {
-            if (typeof startStepByStep === 'function') {
-              setFoundIndex(null);
-              setSearchRange(null);
-              const wrapped = createWrappedGenerator();
-              startStepByStep(wrapped());
-            }
+            generateRandom(n);
           }}
           onStepBack={stepBackward}
           onStepForward={stepForward}
-          onTogglePause={togglePause}
-          onStop={() => {
-            abortRef.current = true;
-            stopSimulation();
-            setIsBenchmarking(false);
-            setFoundIndex(null);
-            setSearchRange(null);
+          onShuffle={shuffleArray}
+          onGenerate={() => generateRandom(arraySize)}
+          onGeneratePattern={(p) => generatePattern(arraySize, p)}
+          onManualUpdate={handleManualUpdate}
+          onQuickBenchmark={() => runFullBenchmark(false)}
+          onVisualRun={() => runFullBenchmark(true)}
+          onExecute={handleExecute}
+          onStop={handleStopAll}
+          onTogglePause={() => {
+            togglePause();
+            if (isPaused && generatorRef.current)
+              runSimulation(generatorRef.current, (val) => playTone(val));
+          }}
+          onStartStepByStep={() => {
+            const { gen } = getAlgoData(algorithm);
+            startStepByStep(gen([...array], target));
+            stepForward();
           }}
         />
 
@@ -340,13 +350,13 @@ export default function SearchingPage() {
         </div>
       </section>
 
-      {benchmarkResults && (
+      {benchmarkData && (
         <BenchmarkModal
-          results={benchmarkResults}
+          data={benchmarkData}
           arraySize={array.length}
-          onClose={() => setBenchmarkResults(null)}
+          onClose={() => setBenchmarkData(null)}
           onReRun={() => {
-            setBenchmarkResults(null);
+            setBenchmarkData(null);
             runFullBenchmark(false);
           }}
         />

@@ -11,26 +11,19 @@ import { NavHeader } from '@/components/NavHeader';
 import { StatCard } from '@/components/Diagnostic/StatCard';
 import { TelemetryLog } from '@/components/Diagnostic/TelemetryLog';
 import { ExpandableSidebar } from '@/components/Diagnostic/ExpandableSidebar';
-import { BenchmarkModal } from '@/components/Diagnostic/BenchmarkModal'; // Imported new component
-
-interface EnhancedBenchmarkResult {
-  name: string;
-  time: number;
-  complexity: string;
-  isFastest: boolean;
-  delta: string;
-}
+import { BenchmarkModal } from '@/components/Diagnostic/BenchmarkModal';
 
 export default function SortingPage() {
   const [arraySize, setArraySize] = useState(50);
-  const [history, setHistory] = useState<any[]>([]);
-  const [benchmarkResults, setBenchmarkResults] = useState<
-    EnhancedBenchmarkResult[] | null
+  const [history, setHistory] = useState<
+    { id: number; algorithm: string; size: number; time: number }[]
+  >([]);
+  const [benchmarkData, setBenchmarkData] = useState<
+    { name: string; time: number; complexity: string }[] | null
   >(null);
-
   const [executionTime, setExecutionTime] = useState(0);
-  const timerIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
+  const timerIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const hasInitialized = useRef(false);
   const abortBenchmarkRef = useRef(false);
 
@@ -56,6 +49,11 @@ export default function SortingPage() {
     togglePause,
     stepForward,
     stepBackward,
+    startStepByStep,
+    hasGenerator,
+    generateRandom,
+    generatePattern,
+    shuffleArray,
     generatorRef,
   } = useAlgorithm([]);
 
@@ -63,9 +61,10 @@ export default function SortingPage() {
     stopTimer();
     setExecutionTime(0);
     const startTime = Date.now();
-    timerIntervalRef.current = setInterval(() => {
-      setExecutionTime(Date.now() - startTime);
-    }, 10);
+    timerIntervalRef.current = setInterval(
+      () => setExecutionTime(Date.now() - startTime),
+      10,
+    );
   };
 
   const stopTimer = () => {
@@ -77,74 +76,10 @@ export default function SortingPage() {
 
   useEffect(() => {
     if (!hasInitialized.current) {
-      handleGenerate();
+      generateRandom(arraySize);
       hasInitialized.current = true;
     }
-  }, [setArray]);
-
-  const handleGenerate = () => {
-    handleStopAll();
-    const newArray = Array.from(
-      { length: arraySize },
-      () => Math.floor(Math.random() * 90) + 5,
-    );
-    setArray(newArray);
-  };
-
-  const handleGeneratePattern = (
-    pattern: 'nearly' | 'reversed' | 'few-unique',
-  ) => {
-    handleStopAll();
-    let newArr = Array.from(
-      { length: arraySize },
-      (_, i) => Math.floor((i / arraySize) * 90) + 5,
-    );
-
-    if (pattern === 'nearly') {
-      for (let i = 0; i < newArr.length; i++) {
-        if (Math.random() > 0.8) {
-          const j = Math.floor(Math.random() * newArr.length);
-          [newArr[i], newArr[j]] = [newArr[j], newArr[i]];
-        }
-      }
-    } else if (pattern === 'reversed') {
-      newArr.reverse();
-    } else if (pattern === 'few-unique') {
-      const values = [20, 40, 60, 80];
-      newArr = Array.from(
-        { length: arraySize },
-        () => values[Math.floor(Math.random() * values.length)],
-      );
-    }
-    setArray(newArr);
-  };
-
-  const handleUpdateManual = (input: string) => {
-    try {
-      const parsed = JSON.parse(input);
-      if (Array.isArray(parsed) && parsed.every((n) => typeof n === 'number')) {
-        handleStopAll();
-        setArray(parsed);
-        setArraySize(parsed.length);
-      }
-    } catch (e) {
-      console.error('Invalid array format');
-    }
-  };
-
-  const logResult = (name: string, duration: number) => {
-    setHistory((prev) =>
-      [
-        {
-          id: Date.now(),
-          algorithm: name,
-          size: array.length,
-          time: Math.round(duration),
-        },
-        ...prev,
-      ].slice(0, 10),
-    );
-  };
+  }, [generateRandom, arraySize]);
 
   const handleStopAll = () => {
     abortBenchmarkRef.current = true;
@@ -162,7 +97,15 @@ export default function SortingPage() {
     stopTimer();
     const finalDuration = performance.now() - startTime;
     setExecutionTime(finalDuration);
-    logResult(algorithm, finalDuration);
+    setHistory((prev) => [
+      {
+        id: Date.now(),
+        algorithm,
+        size: array.length,
+        time: Math.round(finalDuration),
+      },
+      ...prev,
+    ]);
   };
 
   const runFullBenchmark = async (isVisual: boolean) => {
@@ -172,7 +115,7 @@ export default function SortingPage() {
     setExecutionTime(0);
 
     const algorithms: AlgorithmType[] = ['Bubble', 'Quick', 'Merge'];
-    const rawResults: { name: string; time: number; complexity: string }[] = [];
+    const results: { name: string; time: number; complexity: string }[] = [];
     const originalArray = [...array];
     const originalSpeed = speed;
 
@@ -189,61 +132,54 @@ export default function SortingPage() {
       } else {
         const it = gen([...originalArray]);
         let res = await it.next();
-        while (!res.done && !abortBenchmarkRef.current) {
-          res = await it.next();
-        }
+        while (!res.done && !abortBenchmarkRef.current) res = await it.next();
       }
 
       stopTimer();
       const finalDuration = performance.now() - startTime;
+
       if (!abortBenchmarkRef.current) {
-        rawResults.push({
+        results.push({
           name: algo,
           time: Math.round(finalDuration),
           complexity,
         });
-        logResult(algo, finalDuration);
         setArray(originalArray);
         await new Promise((r) => setTimeout(r, 500));
       }
     }
 
     if (!abortBenchmarkRef.current) {
-      const times = rawResults.map((r) => r.time);
-      const fastestTime = Math.min(...times);
-      const enhanced = rawResults.map((r) => ({
-        ...r,
-        isFastest: r.time === fastestTime,
-        delta:
-          r.time === fastestTime
-            ? 'FASTEST'
-            : `+${(((r.time - fastestTime) / fastestTime) * 100).toFixed(0)}%`,
-      }));
-      setBenchmarkResults(enhanced);
+      setBenchmarkData(results);
+      // Sync history with benchmark results
+      setHistory((prev) => [
+        ...results.map((r) => ({
+          id: Date.now() + Math.random(),
+          algorithm: r.name,
+          size: originalArray.length,
+          time: r.time,
+        })),
+        ...prev,
+      ]);
     }
+
     setSpeed(originalSpeed);
     setIsBenchmarking(false);
     stopSimulation();
   };
 
-  const handleStartStepByStep = () => {
-    stopSimulation();
-    setExecutionTime(0);
-    const { gen } = getAlgoData(algorithm);
-    generatorRef.current = gen([...array]);
-    stepForward();
-  };
-
-  const handleTogglePause = () => {
-    if (generatorRef.current) {
-      togglePause();
-      if (isPaused) {
-        runSimulation(generatorRef.current, (val) => playTone(val));
+  const handleManualUpdate = (input: string) => {
+    try {
+      const parsed = JSON.parse(input);
+      if (Array.isArray(parsed) && parsed.every((n) => typeof n === 'number')) {
+        handleStopAll();
+        setArray(parsed);
+        setArraySize(parsed.length);
       }
+    } catch (e) {
+      console.error('Invalid array format');
     }
   };
-
-  const formatTime = (ms: number) => (ms / 1000).toFixed(2) + 's';
 
   return (
     <main className="flex min-h-screen bg-slate-950 text-slate-100 relative">
@@ -259,7 +195,7 @@ export default function SortingPage() {
                 <button
                   key={type}
                   onClick={() => setAlgorithm(type)}
-                  disabled={!!generatorRef.current || isBenchmarking}
+                  disabled={hasGenerator || isBenchmarking}
                   className={`px-2 py-0.5 rounded text-[8px] font-bold transition-all ${algorithm === type ? 'bg-cyan-600 shadow-md shadow-cyan-900/40' : 'bg-slate-800 text-slate-500'}`}
                 >
                   {type}
@@ -282,32 +218,33 @@ export default function SortingPage() {
           speed={speed}
           isPaused={isPaused}
           isBenchmarking={isBenchmarking}
-          hasGenerator={!!generatorRef.current}
+          hasGenerator={hasGenerator}
           currentArray={array}
           onSpeedChange={setSpeed}
           onSizeChange={(n) => {
             setArraySize(n);
-            const newArr = Array.from(
-              { length: n },
-              () => Math.floor(Math.random() * 90) + 5,
-            );
-            setArray(newArr);
+            generateRandom(n);
           }}
           onStepBack={stepBackward}
           onStepForward={stepForward}
-          onShuffle={() => {
-            handleStopAll();
-            setArray([...array].sort(() => Math.random() - 0.5));
-          }}
-          onGenerate={handleGenerate}
-          onGeneratePattern={handleGeneratePattern}
-          onManualUpdate={handleUpdateManual}
+          onShuffle={shuffleArray}
+          onGenerate={() => generateRandom(arraySize)}
+          onGeneratePattern={(p) => generatePattern(arraySize, p)}
+          onManualUpdate={handleManualUpdate}
           onQuickBenchmark={() => runFullBenchmark(false)}
           onVisualRun={() => runFullBenchmark(true)}
           onExecute={handleExecute}
           onStop={handleStopAll}
-          onTogglePause={handleTogglePause}
-          onStartStepByStep={handleStartStepByStep}
+          onTogglePause={() => {
+            togglePause();
+            if (isPaused && generatorRef.current)
+              runSimulation(generatorRef.current, (val) => playTone(val));
+          }}
+          onStartStepByStep={() => {
+            const { gen } = getAlgoData(algorithm);
+            startStepByStep(gen([...array]));
+            stepForward();
+          }}
         />
 
         <div className="grid grid-cols-2 lg:grid-cols-6 gap-4">
@@ -317,17 +254,17 @@ export default function SortingPage() {
             value={
               isBenchmarking
                 ? 'BENCHMARKING'
-                : !!generatorRef.current
+                : hasGenerator
                   ? isPaused
                     ? 'PAUSED'
                     : 'RUNNING'
                   : 'IDLE'
             }
-            highlight={!!generatorRef.current && !isPaused}
+            highlight={hasGenerator && !isPaused}
           />
           <StatCard
             label="Exec Time"
-            value={formatTime(executionTime)}
+            value={(executionTime / 1000).toFixed(2) + 's'}
             highlight={!!timerIntervalRef.current}
           />
           <StatCard
@@ -350,14 +287,13 @@ export default function SortingPage() {
         </div>
       </section>
 
-      {/* RENDER NEW COMPONENT */}
-      {benchmarkResults && (
+      {benchmarkData && (
         <BenchmarkModal
-          results={benchmarkResults}
+          data={benchmarkData}
           arraySize={array.length}
-          onClose={() => setBenchmarkResults(null)}
+          onClose={() => setBenchmarkData(null)}
           onReRun={() => {
-            setBenchmarkResults(null);
+            setBenchmarkData(null);
             runFullBenchmark(false);
           }}
         />
