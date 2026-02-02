@@ -53,7 +53,10 @@ export const useAlgorithm = (initialArray: number[]) => {
   );
 
   const generatePattern = useCallback(
-    (size: number, pattern: 'nearly' | 'reversed' | 'sorted' | 'few-unique') => {
+    (
+      size: number,
+      pattern: 'nearly' | 'reversed' | 'sorted' | 'few-unique',
+    ) => {
       stopSimulation();
       let newArr = Array.from(
         { length: size },

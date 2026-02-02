@@ -6,10 +6,10 @@ import { ControlPanel } from '@/components/ControlPanel';
 import { CodeViewer } from '@/components/CodeViewer';
 import { VisualizerBar } from '@/components/VisualizerBar';
 import { NavHeader } from '@/components/NavHeader';
-import { StatCard } from '@/components/Diagnostic/StatCard';
-import { TelemetryLog } from '@/components/Diagnostic/TelemetryLog';
-import { ExpandableSidebar } from '@/components/Diagnostic/ExpandableSidebar';
-import { BenchmarkModal } from '@/components/Diagnostic/BenchmarkModal';
+import { StatCard } from '@/components/StatCard';
+import { TelemetryLog } from '@/components/TelemetryLog';
+import { ExpandableSidebar } from '@/components/ExpandableSidebar';
+import { BenchmarkModal } from '@/components/BenchmarkModal';
 import { AlgorithmType, useSearchingLogic } from '@/hooks/useSearchingLogic';
 
 export default function SearchingPage() {
@@ -34,7 +34,7 @@ export default function SearchingPage() {
   const [searchRange, setSearchRange] = useState<[number, number] | null>(null);
 
   const hasInitialized = useRef(false);
-  const hasInitializedTarget = useRef(false); // Added to track initial target selection
+  const hasInitializedTarget = useRef(false);
   const abortRef = useRef(false);
 
   const { playTone } = useAudio();
@@ -67,7 +67,6 @@ export default function SearchingPage() {
     }
   }, [generateRandom, arraySize]);
 
-  // FIXED: Only auto-select target if it hasn't been initialized yet
   useEffect(() => {
     if (array.length > 0 && !hasGenerator && !hasInitializedTarget.current) {
       setTarget(array[Math.floor(Math.random() * array.length)]);
@@ -106,14 +105,17 @@ export default function SearchingPage() {
     (onFound: (idx: number) => void) => {
       const { gen } = getAlgoData(algorithm);
       return async function* () {
+        let isFound = false;
         for await (const step of gen(array, target)) {
-          if (step.found !== undefined) {
+          if (step.found !== undefined && step.found !== -1) {
             setFoundIndex(step.found);
             onFound(step.found);
+            isFound = true;
           }
           if (step.range) setSearchRange(step.range);
           yield step;
         }
+        // If generator ends without finding, explicit check can go here if needed
       };
     },
     [algorithm, array, target, getAlgoData],
@@ -125,6 +127,7 @@ export default function SearchingPage() {
     let wasSuccessful = false;
     const startTime = performance.now();
 
+    // The callback only fires if the index is found
     const wrapped = createWrappedGenerator(() => {
       wasSuccessful = true;
     });
@@ -154,6 +157,7 @@ export default function SearchingPage() {
       time: number;
       complexity: string;
       success: boolean;
+      size: number;
     }[] = [];
     const originalSpeed = speed;
 
@@ -168,16 +172,22 @@ export default function SearchingPage() {
       const startTime = performance.now();
 
       if (isVisual) {
-        setSpeed(1);
-        const wrapped = createWrappedGenerator(() => {
-          wasSuccessful = true;
-        });
+        setSpeed(0);
+        const wrapped = async function* () {
+          for await (const step of gen(array, target)) {
+            if (step.found !== undefined && step.found !== -1)
+              wasSuccessful = true;
+            if (step.range) setSearchRange(step.range);
+            yield step;
+          }
+        };
         await runSimulation(wrapped(), (val) => playTone(val));
       } else {
         const it = gen(array, target);
         let res = await it.next();
         while (!res.done && !abortRef.current) {
-          if (res.value?.found !== undefined) wasSuccessful = true;
+          if (res.value?.found !== undefined && res.value.found !== -1)
+            wasSuccessful = true;
           res = await it.next();
         }
       }
@@ -189,6 +199,7 @@ export default function SearchingPage() {
           time: duration,
           complexity,
           success: wasSuccessful,
+          size: array.length,
         });
       }
       await new Promise((r) => setTimeout(r, 400));
@@ -251,7 +262,7 @@ export default function SearchingPage() {
           targetValue={target}
           onTargetChange={(val) => {
             setTarget(val);
-            hasInitializedTarget.current = true; // Prevents auto-overwrite if user manually types
+            hasInitializedTarget.current = true;
           }}
           size={arraySize}
           sizeShower={true}
@@ -263,7 +274,7 @@ export default function SearchingPage() {
           onSpeedChange={setSpeed}
           onSizeChange={(n) => {
             setArraySize(n);
-            hasInitializedTarget.current = false; // Allow re-picking target for new size
+            hasInitializedTarget.current = false;
             generateRandom(n);
           }}
           onStepBack={stepBackward}
@@ -315,7 +326,7 @@ export default function SearchingPage() {
             label="Result"
             value={
               foundIndex !== null
-                ? `FOUND AT ${foundIndex}`
+                ? `FOUND AT INDEX ${foundIndex}`
                 : hasGenerator && !isPaused
                   ? 'SEARCHING...'
                   : 'NOT FOUND'
@@ -336,13 +347,7 @@ export default function SearchingPage() {
               <VisualizerBar
                 key={`${idx}-${val}`}
                 val={val}
-                status={
-                  status === 'found'
-                    ? 'found'
-                    : status === 'comparing'
-                      ? 'comparing'
-                      : 'idle'
-                }
+                status={status}
                 maxVal={100}
                 className={
                   isOutOfRange
@@ -358,7 +363,6 @@ export default function SearchingPage() {
       {benchmarkData && benchmarkData.length > 0 && (
         <BenchmarkModal
           data={benchmarkData}
-          arraySize={array.length}
           onClose={() => setBenchmarkData(null)}
           onReRun={() => {
             setBenchmarkData(null);

@@ -16,8 +16,7 @@ export type HeuristicType = 'Manhattan' | 'Euclidean';
 const getDistance = (node: Node, endNode: Node, type: HeuristicType) => {
   const d1 = Math.abs(node.row - endNode.row);
   const d2 = Math.abs(node.col - endNode.col);
-  if (type === 'Manhattan') return d1 + d2;
-  return Math.sqrt(d1 * d1 + d2 * d2);
+  return type === 'Manhattan' ? d1 + d2 : Math.sqrt(d1 * d1 + d2 * d2);
 };
 
 export const createNode = (row: number, col: number): Node => ({
@@ -33,13 +32,27 @@ export const createNode = (row: number, col: number): Node => ({
   previousNode: null,
 });
 
+// Helper for deep cloning grid for React state updates
+const cloneGrid = (grid: Node[][]) =>
+  grid.map((row) => [...row.map((node) => ({ ...node }))]);
+
 async function* reconstructPath(grid: Node[][], endNode: Node, line: number) {
   let current: Node | null = endNode;
   while (current !== null) {
     current.isPath = true;
+    yield { grid: cloneGrid(grid), line };
     current = current.previousNode;
-    yield { grid: [...grid.map((row) => [...row])], line };
   }
+}
+
+function getNeighbors(node: Node, grid: Node[][]) {
+  const neighbors = [];
+  const { row, col } = node;
+  if (row > 0) neighbors.push(grid[row - 1][col]);
+  if (row < grid.length - 1) neighbors.push(grid[row + 1][col]);
+  if (col > 0) neighbors.push(grid[row][col - 1]);
+  if (col < grid[0].length - 1) neighbors.push(grid[row][col + 1]);
+  return neighbors.filter((n) => !n.isWall);
 }
 
 // --- DIJKSTRA ---
@@ -52,7 +65,7 @@ export const dijkstraCode = `function dijkstra(grid, start, end) {
     if (curr.isWall) continue;
     curr.isVisited = true;
     if (curr === end) return getPath(end);
-    updateNeighbors(curr, grid); // Cost = distance + weight
+    updateNeighbors(curr, grid); 
   }
 }`;
 
@@ -63,23 +76,22 @@ export async function* dijkstra(
 ) {
   startNode.distance = 0;
   const unvisited = grid.flat();
-  yield { line: 2 }; // start.distance = 0
+  yield { line: 1 }; // start.distance = 0
 
   while (unvisited.length > 0) {
-    yield { line: 4 }; // while (unvisited.length)
+    yield { line: 3 }; // while (unvisited.length)
     unvisited.sort((a, b) => a.distance - b.distance);
-    yield { line: 5 }; // sortNodesByDistance(unvisited)
+    yield { line: 4 }; // sortNodesByDistance
 
     const curr = unvisited.shift();
-    yield { line: 6 }; // const curr = unvisited.shift()
-
     if (!curr || curr.isWall || curr.distance === Infinity) continue;
+    yield { line: 5 }; // const curr = unvisited.shift()
 
     curr.isVisited = true;
-    yield { grid: [...grid.map((row) => [...row])], line: 8 }; // curr.isVisited = true
+    yield { grid: cloneGrid(grid), line: 7 }; // curr.isVisited = true
 
     if (curr.row === endNode.row && curr.col === endNode.col) {
-      yield* reconstructPath(grid, curr, 9); // if (curr === end) return getPath(end)
+      yield* reconstructPath(grid, curr, 8); // return getPath(end)
       return;
     }
 
@@ -92,7 +104,7 @@ export async function* dijkstra(
         neighbor.previousNode = curr;
       }
     }
-    yield { grid: [...grid.map((row) => [...row])], line: 10 }; // updateNeighbors
+    yield { grid: cloneGrid(grid), line: 9 }; // updateNeighbors
   }
 }
 
@@ -103,7 +115,7 @@ export const aStarCode = `function aStar(grid, start, end) {
     const curr = getLowestTotalCost(openSet);
     if (curr === end) return getPath(end);
     curr.isVisited = true;
-    updateAStarNeighbors(curr, end); // Cost = distance + weight + heuristic
+    updateAStarNeighbors(curr, end);
   }
 }`;
 
@@ -117,23 +129,22 @@ export async function* aStar(
   startNode.heuristic = getDistance(startNode, endNode, heuristic);
   startNode.totalCost = startNode.distance + startNode.heuristic;
   const openSet = [startNode];
-  yield { line: 2 }; // openSet.push(start)
+  yield { line: 1 }; // openSet.push(start)
 
   while (openSet.length > 0) {
-    yield { line: 3 }; // while (openSet.length)
+    yield { line: 2 }; // while (openSet.length)
     openSet.sort((a, b) => a.totalCost - b.totalCost);
     const curr = openSet.shift();
-    yield { line: 4 }; // const curr = getLowestTotalCost(openSet)
-
     if (!curr || curr.isWall) continue;
+    yield { line: 3 }; // const curr = getLowestTotalCost
 
     if (curr.row === endNode.row && curr.col === endNode.col) {
-      yield* reconstructPath(grid, curr, 5); // return getPath(end)
+      yield* reconstructPath(grid, curr, 4); // return getPath(end)
       return;
     }
 
     curr.isVisited = true;
-    yield { grid: [...grid.map((row) => [...row])], line: 6 }; // curr.isVisited = true
+    yield { grid: cloneGrid(grid), line: 5 }; // curr.isVisited = true
 
     const neighbors = getNeighbors(curr, grid);
     for (const neighbor of neighbors) {
@@ -147,7 +158,7 @@ export async function* aStar(
         if (!openSet.includes(neighbor)) openSet.push(neighbor);
       }
     }
-    yield { grid: [...grid.map((row) => [...row])], line: 7 }; // updateAStarNeighbors
+    yield { grid: cloneGrid(grid), line: 6 }; // updateAStarNeighbors
   }
 }
 
@@ -158,7 +169,7 @@ export const greedyCode = `function greedyBestFirst(grid, start, end) {
     const curr = getLowestHeuristic(openSet);
     if (curr === end) return getPath(end);
     curr.isVisited = true;
-    updateGreedyNeighbors(curr, end); // Only cares about heuristic
+    updateGreedyNeighbors(curr, end);
   }
 }`;
 
@@ -168,24 +179,24 @@ export async function* greedyBestFirst(
   endNode: Node,
   heuristic: HeuristicType = 'Manhattan',
 ) {
+  startNode.heuristic = getDistance(startNode, endNode, heuristic);
   const openSet = [startNode];
-  yield { line: 2 }; // openSet.push(start)
+  yield { line: 1 };
 
   while (openSet.length > 0) {
-    yield { line: 3 }; // while (openSet.length)
+    yield { line: 2 };
     openSet.sort((a, b) => a.heuristic - b.heuristic);
     const curr = openSet.shift();
-    yield { line: 4 }; // const curr = getLowestHeuristic
-
     if (!curr || curr.isWall || curr.isVisited) continue;
+    yield { line: 3 };
 
     if (curr.row === endNode.row && curr.col === endNode.col) {
-      yield* reconstructPath(grid, curr, 5); // return getPath(end)
+      yield* reconstructPath(grid, curr, 4);
       return;
     }
 
     curr.isVisited = true;
-    yield { grid: [...grid.map((row) => [...row])], line: 6 }; // curr.isVisited = true
+    yield { grid: cloneGrid(grid), line: 5 };
 
     const neighbors = getNeighbors(curr, grid);
     for (const neighbor of neighbors) {
@@ -195,16 +206,89 @@ export async function* greedyBestFirst(
         if (!openSet.includes(neighbor)) openSet.push(neighbor);
       }
     }
-    yield { grid: [...grid.map((row) => [...row])], line: 7 }; // updateGreedyNeighbors
+    yield { grid: cloneGrid(grid), line: 6 };
   }
 }
 
-function getNeighbors(node: Node, grid: Node[][]) {
-  const neighbors = [];
-  const { row, col } = node;
-  if (row > 0) neighbors.push(grid[row - 1][col]);
-  if (row < grid.length - 1) neighbors.push(grid[row + 1][col]);
-  if (col > 0) neighbors.push(grid[row][col - 1]);
-  if (col < grid[0].length - 1) neighbors.push(grid[row][col + 1]);
-  return neighbors.filter((n) => !n.isWall);
+// --- BFS ---
+export const bfsCode = `function bfs(start, end) {
+  const queue = [start];
+  while (queue.length > 0) {
+    const curr = queue.shift();
+    if (curr === end) return backtrace(end);
+    for (const neighbor of getNeighbors(curr)) {
+      if (!neighbor.visited) {
+        neighbor.parent = curr;
+        queue.push(neighbor);
+      }
+    }
+  }
+}`;
+
+export async function* bfs(grid: Node[][], startNode: Node, endNode: Node) {
+  const queue: Node[] = [startNode];
+  startNode.isVisited = true;
+  yield { line: 1 }; // const queue = [start]
+
+  while (queue.length > 0) {
+    yield { line: 2 }; // while (queue.length)
+    const curr = queue.shift()!;
+    yield { grid: cloneGrid(grid), line: 3 }; // const curr = queue.shift()
+
+    if (curr.row === endNode.row && curr.col === endNode.col) {
+      yield* reconstructPath(grid, curr, 4); // return backtrace(end)
+      return;
+    }
+
+    const neighbors = getNeighbors(curr, grid);
+    for (const neighbor of neighbors) {
+      if (!neighbor.isVisited) {
+        neighbor.isVisited = true;
+        neighbor.previousNode = curr;
+        queue.push(neighbor);
+      }
+    }
+    yield { grid: cloneGrid(grid), line: 5 }; // for (const neighbor...)
+  }
+}
+
+// --- DFS ---
+export const dfsCode = `function dfs(start, end) {
+  const stack = [start];
+  while (stack.length > 0) {
+    const curr = stack.pop();
+    if (curr === end) return backtrace(end);
+    if (!curr.visited) {
+      curr.visited = true;
+      stack.push(...neighbors);
+    }
+  }
+}`;
+
+export async function* dfs(grid: Node[][], startNode: Node, endNode: Node) {
+  const stack: Node[] = [startNode];
+  yield { line: 1 };
+
+  while (stack.length > 0) {
+    yield { line: 2 };
+    const curr = stack.pop()!;
+    yield { grid: cloneGrid(grid), line: 3 };
+
+    if (curr.row === endNode.row && curr.col === endNode.col) {
+      yield* reconstructPath(grid, curr, 4);
+      return;
+    }
+
+    if (!curr.isVisited) {
+      curr.isVisited = true;
+      const neighbors = getNeighbors(curr, grid);
+      for (const neighbor of neighbors) {
+        if (!neighbor.isVisited) {
+          neighbor.previousNode = curr;
+          stack.push(neighbor);
+        }
+      }
+      yield { grid: cloneGrid(grid), line: 5 };
+    }
+  }
 }

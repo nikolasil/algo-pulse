@@ -6,35 +6,45 @@ interface RawBenchmarkData {
   time: number;
   complexity: string;
   success: boolean;
+  size?: number; // Elements/Array Size
+  pathLength?: number; // Only present for Pathfinding
 }
 
 interface BenchmarkModalProps {
   data: RawBenchmarkData[];
-  arraySize: number;
   onClose: () => void;
   onReRun: () => void;
 }
 
 export function BenchmarkModal({
   data,
-  arraySize,
   onClose,
   onReRun,
 }: BenchmarkModalProps) {
   const results = useMemo(() => {
-    const fastestTime = Math.min(...data.map((r) => r.time));
+    if (!data || data.length === 0) return [];
+    const times = data.map((r) => r.time);
+    const fastestTime = Math.max(0.1, Math.min(...times));
+
     return data.map((r) => ({
       ...r,
-      isFastest: r.time === fastestTime,
+      isFastest: r.time <= fastestTime,
       delta:
-        r.time === fastestTime
+        r.time <= fastestTime
           ? 'FASTEST'
           : `+${(((r.time - fastestTime) / fastestTime) * 100).toFixed(0)}%`,
     }));
   }, [data]);
 
-  const maxTime = Math.max(...results.map((r) => r.time));
-  const fastestAlgo = results.find((r) => r.isFastest);
+  if (!data || data.length === 0) return null;
+
+  const maxTime = Math.max(...results.map((r) => r.time), 1);
+  const isGrid = data.some((item) => item.pathLength !== undefined);
+  const isSearch =
+    !isGrid && data.some((item) => typeof item.success === 'boolean');
+
+  // Determine Title
+  const modeTitle = isGrid ? 'Pathfinding' : isSearch ? 'Searching' : 'Sorting';
 
   return (
     <div className="fixed inset-0 z-[200] flex items-center justify-center p-4">
@@ -45,7 +55,7 @@ export function BenchmarkModal({
       <div className="relative bg-slate-900 border border-slate-700 w-full max-w-4xl max-h-[90vh] sm:rounded-3xl shadow-2xl overflow-hidden flex flex-col animate-in zoom-in-95 duration-300">
         <div className="px-6 py-4 border-b border-slate-800 flex justify-between items-center bg-slate-900/50">
           <h3 className="text-lg font-bold text-white tracking-tight flex items-center gap-3">
-            <span className="text-cyan-500">⚡</span> Diagnostic Report
+            <span className="text-cyan-500">⚡</span> {modeTitle} Diagnostic
           </h3>
           <button
             onClick={onClose}
@@ -63,9 +73,7 @@ export function BenchmarkModal({
                 <h4 className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">
                   Efficiency Chart
                 </h4>
-                <span className="text-[9px] text-slate-600 font-mono">
-                  ms (Latency)
-                </span>
+                <span className="text-[9px] text-slate-600 font-mono">ms</span>
               </div>
               <div className="space-y-6 pt-2">
                 {results.map((res) => (
@@ -83,18 +91,13 @@ export function BenchmarkModal({
                     <div className="h-1.5 w-full bg-slate-800 rounded-full overflow-hidden">
                       <div
                         className={`h-full transition-all duration-1000 ease-out rounded-full ${res.isFastest ? 'bg-cyan-500 shadow-[0_0_8px_rgba(6,182,212,0.4)]' : 'bg-slate-600'}`}
-                        style={{ width: `${(res.time / maxTime) * 100}%` }}
+                        style={{
+                          width: `${Math.max(5, (res.time / maxTime) * 100)}%`,
+                        }}
                       />
                     </div>
                   </div>
                 ))}
-              </div>
-
-              <div className="bg-amber-500/5 border border-amber-500/20 rounded-xl p-3">
-                <p className="text-[9px] text-amber-500/80 font-medium leading-relaxed uppercase tracking-wide">
-                  <span className="font-bold">Advice:</span> {fastestAlgo?.name}{' '}
-                  is the optimal choice for this {arraySize} unit set.
-                </p>
               </div>
             </div>
 
@@ -126,11 +129,21 @@ export function BenchmarkModal({
                         >
                           {res.delta}
                         </span>
-                        <span
-                          className={`text-[7px] font-black uppercase px-1 py-0.5 rounded ${res.success ? 'bg-emerald-500/10 text-emerald-500' : 'bg-rose-500/10 text-rose-500'}`}
-                        >
-                          {res.success ? 'Found' : 'Miss'}
+
+                        {/* Data Size Display */}
+                        <span className="text-[7px] text-slate-400 font-mono uppercase">
+                          {isGrid
+                            ? `Visited: ${res.size ?? 0} | Path: ${res.pathLength ?? 0}`
+                            : `Size: ${res.size ?? 0}`}
                         </span>
+
+                        {(isGrid || isSearch) && (
+                          <span
+                            className={`text-[7px] font-bold px-1 rounded ${res.success ? 'text-emerald-500 bg-emerald-500/10' : 'text-rose-500 bg-rose-500/10'}`}
+                          >
+                            {res.success ? 'FOUND' : 'MISS'}
+                          </span>
+                        )}
                       </div>
                     </div>
                   </div>

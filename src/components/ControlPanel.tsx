@@ -11,6 +11,12 @@ interface ControlPanelProps {
   currentArray?: number[];
   isSearch?: boolean;
   targetValue?: number;
+  viewMode?: 'Grid' | 'Tree';
+  brush?: 'Wall' | 'Mud';
+  treeMode?: 'BST' | 'Balanced' | 'Complete';
+  onBrushChange?: (brush: 'Wall' | 'Mud') => void;
+  onGenerateMaze?: () => void;
+  onTreeModeChange?: (mode: 'BST' | 'Balanced' | 'Complete') => void;
   onTargetChange?: (val: number) => void;
   onSpeedChange: (speed: number) => void;
   onSizeChange: (size: number) => void;
@@ -39,6 +45,12 @@ export const ControlPanel = ({
   currentArray = [],
   isSearch = false,
   targetValue,
+  viewMode,
+  brush,
+  treeMode,
+  onBrushChange,
+  onGenerateMaze,
+  onTreeModeChange,
   onTargetChange,
   onSpeedChange,
   onSizeChange,
@@ -96,10 +108,11 @@ export const ControlPanel = ({
       )}
 
       <div className="flex flex-wrap gap-4 items-center">
-        {isSearch && (
+        {/* TARGET INPUT (Shared by Search and Tree Mode) */}
+        {(isSearch || viewMode === 'Tree') && (
           <div className="flex flex-col px-3 py-1 bg-slate-950 rounded-xl border border-slate-800 min-w-[100px]">
             <label className="text-[8px] font-mono text-slate-500 uppercase tracking-tighter">
-              Target
+              Search Value
             </label>
             <input
               type="number"
@@ -108,6 +121,24 @@ export const ControlPanel = ({
               onChange={(e) => onTargetChange?.(Number(e.target.value))}
               className="bg-transparent text-sm font-bold text-cyan-400 focus:outline-none w-16"
             />
+          </div>
+        )}
+
+        {/* BRUSH SELECTION (Pathfinding Grid Mode Only) */}
+        {viewMode === 'Grid' && (
+          <div className="flex bg-slate-950 p-1 rounded-xl border border-slate-800 gap-1">
+            <button
+              onClick={() => onBrushChange?.('Wall')}
+              className={`px-3 py-1.5 text-[9px] font-bold rounded-lg transition-all ${brush === 'Wall' ? 'bg-slate-700 text-white' : 'text-slate-500 hover:text-slate-400'}`}
+            >
+              WALL
+            </button>
+            <button
+              onClick={() => onBrushChange?.('Mud')}
+              className={`px-3 py-1.5 text-[9px] font-bold rounded-lg transition-all ${brush === 'Mud' ? 'bg-amber-700 text-white' : 'text-slate-500 hover:text-slate-400'}`}
+            >
+              MUD
+            </button>
           </div>
         )}
 
@@ -159,13 +190,18 @@ export const ControlPanel = ({
               disabled={isLocked}
               className={`px-4 h-10 rounded-lg border uppercase text-[9px] font-bold transition-all ${showDataMenu ? 'bg-cyan-900/40 border-cyan-500 text-cyan-400' : 'bg-slate-800 border-slate-600 text-slate-200 hover:bg-slate-700'}`}
             >
-              📊 Data
+              📊{' '}
+              {viewMode === 'Grid'
+                ? 'Grid Ops'
+                : viewMode === 'Tree'
+                  ? 'Tree Ops'
+                  : 'Array Ops'}
             </button>
             {showDataMenu && (
               <div className="fixed sm:absolute top-1/3 sm:top-full left-1/2 sm:left-0 -translate-x-1/2 sm:translate-x-0 mt-0 sm:mt-2 w-[90vw] max-w-72 bg-slate-900 border border-slate-700 rounded-2xl shadow-2xl z-[100] p-5 backdrop-blur-xl bg-slate-900/98 animate-in fade-in zoom-in-95 duration-200">
                 <div className="flex justify-between items-center mb-4 sm:hidden">
                   <span className="text-[10px] font-bold uppercase text-cyan-400">
-                    Data Labs
+                    Configuration
                   </span>
                   <button
                     onClick={() => setShowDataMenu(false)}
@@ -175,6 +211,7 @@ export const ControlPanel = ({
                   </button>
                 </div>
                 <div className="space-y-5">
+                  {/* SIZE SLIDER - ONLY SHOWN IF sizeShower IS TRUE */}
                   {sizeShower && (
                     <div className="space-y-2">
                       <div className="flex justify-between items-center">
@@ -197,65 +234,105 @@ export const ControlPanel = ({
                       />
                     </div>
                   )}
-                  <div className="h-[1px] bg-slate-800 w-full" />
-                  <div>
-                    <label className="text-[8px] font-bold text-slate-500 uppercase tracking-widest mb-2 block">
-                      Manual Array
-                    </label>
-                    <div className="flex gap-2">
-                      <input
-                        value={manualInput}
-                        onChange={(e) => setManualInput(e.target.value)}
-                        className="flex-1 min-w-0 bg-slate-950 border border-slate-700 rounded-lg px-2 py-2 text-[10px] font-mono text-cyan-400 focus:outline-none"
-                      />
-                      <button
-                        onClick={() => onManualUpdate(manualInput)}
-                        className="bg-cyan-600 text-slate-950 px-3 py-1 rounded-lg text-[8px] font-bold uppercase"
-                      >
-                        Set
-                      </button>
+
+                  {/* GRID SPECIFIC OPS */}
+                  {viewMode === 'Grid' && (
+                    <button
+                      onClick={() => {
+                        onGenerateMaze?.();
+                        setShowDataMenu(false);
+                      }}
+                      className="w-full bg-indigo-600 hover:bg-indigo-500 py-3 rounded-lg text-[9px] font-bold uppercase text-white transition-colors"
+                    >
+                      Generate Maze
+                    </button>
+                  )}
+
+                  {/* TREE SPECIFIC OPS */}
+                  {viewMode === 'Tree' && (
+                    <div className="space-y-2">
+                      <label className="text-[8px] font-bold text-slate-500 uppercase tracking-widest block">
+                        Tree Structure
+                      </label>
+                      <div className="grid grid-cols-1 gap-1">
+                        {(['BST', 'Balanced', 'Complete'] as const).map((m) => (
+                          <button
+                            key={m}
+                            onClick={() => {
+                              onTreeModeChange?.(m);
+                              setShowDataMenu(false);
+                            }}
+                            className={`py-2 text-[9px] font-bold rounded-lg transition-all ${treeMode === m ? 'bg-indigo-500 text-white' : 'bg-slate-800 text-slate-400'}`}
+                          >
+                            {m}
+                          </button>
+                        ))}
+                      </div>
                     </div>
-                  </div>
-                  <div className="grid grid-cols-2 gap-2 pt-2">
-                    <button
-                      onClick={onShuffle}
-                      className="bg-slate-800 hover:bg-slate-700 py-3 rounded-lg text-[8px] font-bold uppercase"
-                    >
-                      Shuffle
-                    </button>
-                    <button
-                      onClick={onGenerate}
-                      className="bg-slate-800 hover:bg-slate-700 py-3 rounded-lg text-[8px] font-bold uppercase"
-                    >
-                      Generate Random
-                    </button>
+                  )}
+
+                  {/* STANDARD DATA OPS (Hidden if in Grid mode) */}
+                  {viewMode !== 'Grid' && (
                     <>
-                      <button
-                        onClick={() => onGeneratePattern('reversed')}
-                        className="bg-slate-800 hover:bg-slate-700 py-3 rounded-lg text-[8px] font-bold uppercase"
-                      >
-                        Generate Reversed Sorted
-                      </button>
-                      <button
-                        onClick={() => onGeneratePattern('sorted')}
-                        className="bg-slate-800 hover:bg-slate-700 py-3 rounded-lg text-[8px] font-bold uppercase"
-                      >
-                        Generate Sorted
-                      </button>
-                      <button
-                        onClick={() => onGeneratePattern('nearly')}
-                        className="bg-slate-800 hover:bg-slate-700 py-3 rounded-lg text-[8px] font-bold uppercase"
-                      >
-                        Generate Nearly Sorted
-                      </button>
-                      <button
-                        onClick={() => onGeneratePattern('few-unique')}
-                        className="bg-slate-800 hover:bg-slate-700 py-3 rounded-lg text-[8px] font-bold uppercase"
-                      >
-                        Generate Few Unique
-                      </button>
+                      <div className="h-[1px] bg-slate-800 w-full" />
+                      <div>
+                        <label className="text-[8px] font-bold text-slate-500 uppercase tracking-widest mb-2 block">
+                          Manual Array
+                        </label>
+                        <div className="flex gap-2">
+                          <input
+                            value={manualInput}
+                            onChange={(e) => setManualInput(e.target.value)}
+                            className="flex-1 min-w-0 bg-slate-950 border border-slate-700 rounded-lg px-2 py-2 text-[10px] font-mono text-cyan-400 focus:outline-none"
+                          />
+                          <button
+                            onClick={() => onManualUpdate(manualInput)}
+                            className="bg-cyan-600 text-slate-950 px-3 py-1 rounded-lg text-[8px] font-bold uppercase"
+                          >
+                            Set
+                          </button>
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-2 gap-2 pt-2">
+                        <button
+                          onClick={onShuffle}
+                          className="bg-slate-800 hover:bg-slate-700 py-3 rounded-lg text-[8px] font-bold uppercase"
+                        >
+                          Shuffle
+                        </button>
+                        <button
+                          onClick={onGenerate}
+                          className="bg-slate-800 hover:bg-slate-700 py-3 rounded-lg text-[8px] font-bold uppercase"
+                        >
+                          Generate Random
+                        </button>
+                        <button
+                          onClick={() => onGeneratePattern('reversed')}
+                          className="bg-slate-800 hover:bg-slate-700 py-3 rounded-lg text-[8px] font-bold uppercase"
+                        >
+                          Generate Reversed Sorted
+                        </button>
+                        <button
+                          onClick={() => onGeneratePattern('sorted')}
+                          className="bg-slate-800 hover:bg-slate-700 py-3 rounded-lg text-[8px] font-bold uppercase"
+                        >
+                          Generate Sorted
+                        </button>
+                        <button
+                          onClick={() => onGeneratePattern('nearly')}
+                          className="bg-slate-800 hover:bg-slate-700 py-3 rounded-lg text-[8px] font-bold uppercase"
+                        >
+                          Generate Nearly Sorted
+                        </button>
+                        <button
+                          onClick={() => onGeneratePattern('few-unique')}
+                          className="bg-slate-800 hover:bg-slate-700 py-3 rounded-lg text-[8px] font-bold uppercase"
+                        >
+                          Generate Few Unique
+                        </button>
+                      </div>
                     </>
-                  </div>
+                  )}
                 </div>
               </div>
             )}

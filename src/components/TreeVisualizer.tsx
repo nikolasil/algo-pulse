@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { TreeNode } from '@/algorithms/treeAlgorithms';
+import { TreeNode } from '@/structures/treeAlgorithms';
 
 interface TreeVisualizerProps {
   root: TreeNode | null;

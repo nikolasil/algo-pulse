@@ -8,10 +8,10 @@ import { ControlPanel } from '@/components/ControlPanel';
 import { CodeViewer } from '@/components/CodeViewer';
 import { VisualizerBar } from '@/components/VisualizerBar';
 import { NavHeader } from '@/components/NavHeader';
-import { StatCard } from '@/components/Diagnostic/StatCard';
-import { TelemetryLog } from '@/components/Diagnostic/TelemetryLog';
-import { ExpandableSidebar } from '@/components/Diagnostic/ExpandableSidebar';
-import { BenchmarkModal } from '@/components/Diagnostic/BenchmarkModal';
+import { StatCard } from '@/components/StatCard';
+import { TelemetryLog } from '@/components/TelemetryLog';
+import { ExpandableSidebar } from '@/components/ExpandableSidebar';
+import { BenchmarkModal } from '@/components/BenchmarkModal';
 
 export default function SortingPage() {
   const [arraySize, setArraySize] = useState(50);
@@ -115,7 +115,7 @@ export default function SortingPage() {
     setExecutionTime(0);
 
     const algorithms: AlgorithmType[] = ['Bubble', 'Quick', 'Merge'];
-    const results: { name: string; time: number; complexity: string }[] = [];
+    const results: { name: string; time: number; complexity: string; size: number }[] = [];
     const originalArray = [...array];
     const originalSpeed = speed;
 
@@ -127,7 +127,7 @@ export default function SortingPage() {
       const { gen, complexity } = getAlgoData(algo);
 
       if (isVisual) {
-        setSpeed(1);
+        setSpeed(0);
         await runSimulation(gen([...originalArray]), (val) => playTone(val));
       } else {
         const it = gen([...originalArray]);
@@ -143,6 +143,7 @@ export default function SortingPage() {
           name: algo,
           time: Math.round(finalDuration),
           complexity,
+          size: originalArray.length,
         });
         setArray(originalArray);
         await new Promise((r) => setTimeout(r, 500));
