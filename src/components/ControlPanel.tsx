@@ -8,12 +8,15 @@ interface ControlPanelProps {
   isPaused: boolean;
   isBenchmarking: boolean;
   hasGenerator: boolean;
+  currentArray: number[];
   onSpeedChange: (speed: number) => void;
   onSizeChange: (size: number) => void;
   onStepBack: () => void;
   onStepForward: () => void;
   onShuffle: () => void;
   onGenerate: () => void;
+  onGeneratePattern: (pattern: 'nearly' | 'reversed' | 'few-unique') => void;
+  onManualUpdate: (input: string) => void;
   onQuickBenchmark: () => void;
   onVisualRun: () => void;
   onExecute: () => void;
@@ -28,6 +31,7 @@ export const ControlPanel = ({
   isPaused,
   isBenchmarking,
   hasGenerator,
+  currentArray,
   onSpeedChange,
   onSizeChange,
   sizeShower,
@@ -35,6 +39,8 @@ export const ControlPanel = ({
   onStepForward,
   onShuffle,
   onGenerate,
+  onGeneratePattern,
+  onManualUpdate,
   onQuickBenchmark,
   onVisualRun,
   onExecute,
@@ -43,21 +49,43 @@ export const ControlPanel = ({
   onStartStepByStep,
 }: ControlPanelProps) => {
   const [showBenchmarkMenu, setShowBenchmarkMenu] = useState(false);
+  const [showDataMenu, setShowDataMenu] = useState(false);
+  const [manualInput, setManualInput] = useState(`[${currentArray.join(',')}]`);
+
   const menuRef = useRef<HTMLDivElement>(null);
+  const dataRef = useRef<HTMLDivElement>(null);
   const isLocked = hasGenerator || isBenchmarking;
 
   useEffect(() => {
+    setManualInput(`[${currentArray.join(',')}]`);
+  }, [currentArray]);
+
+  useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
-      if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
+      if (menuRef.current && !menuRef.current.contains(event.target as Node))
         setShowBenchmarkMenu(false);
-      }
+      if (dataRef.current && !dataRef.current.contains(event.target as Node))
+        setShowDataMenu(false);
     };
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
+  const closeAll = () => {
+    setShowBenchmarkMenu(false);
+    setShowDataMenu(false);
+  };
+
   return (
-    <div className="flex flex-col gap-6 bg-slate-900/50 p-6 rounded-2xl border border-slate-800 w-full">
+    <div className="flex flex-col gap-6 bg-slate-900/50 p-6 rounded-2xl border border-slate-800 w-full relative z-10">
+      {/* MOBILE BACKDROP */}
+      {(showBenchmarkMenu || showDataMenu) && (
+        <div
+          className="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-[95] sm:hidden animate-in fade-in duration-200"
+          onClick={closeAll}
+        />
+      )}
+
       <div className="flex flex-wrap gap-8 items-center border-b border-slate-800/50 pb-6">
         {sizeShower && (
           <div className="flex flex-col gap-1 flex-1 min-w-[140px]">
@@ -71,8 +99,8 @@ export const ControlPanel = ({
             </div>
             <input
               type="range"
-              min="10"
-              max="80"
+              min="5"
+              max="100"
               value={size}
               disabled={isLocked}
               onChange={(e) => onSizeChange(Number(e.target.value))}
@@ -122,38 +150,118 @@ export const ControlPanel = ({
 
         <div className="h-6 w-[1px] bg-slate-800 mx-1 hidden sm:block" />
 
-        <button
-          onClick={onShuffle}
-          disabled={isLocked}
-          className="px-3 h-10 rounded-lg border border-slate-700 uppercase text-[9px] font-bold hover:bg-slate-800 disabled:opacity-30"
-        >
-          Shuffle
-        </button>
+        {/* DATA LABS */}
+        <div className="relative" ref={dataRef}>
+          <button
+            onClick={() => {
+              closeAll();
+              setShowDataMenu(!showDataMenu);
+            }}
+            disabled={isLocked}
+            className={`px-4 h-10 rounded-lg border uppercase text-[9px] font-bold transition-all flex items-center gap-2 ${showDataMenu ? 'bg-cyan-900/40 border-cyan-500 text-cyan-400' : 'bg-slate-800 border-slate-600 text-slate-200 hover:bg-slate-700'}`}
+          >
+            📊 Data Labs
+          </button>
+          {showDataMenu && (
+            <div className="fixed sm:absolute top-1/3 sm:top-full left-1/2 sm:left-0 -translate-x-1/2 sm:translate-x-0 mt-0 sm:mt-2 w-[90vw] max-w-72 bg-slate-900 border border-slate-700 rounded-2xl sm:rounded-xl shadow-2xl z-[100] p-5 animate-in fade-in zoom-in-95 duration-200 backdrop-blur-xl bg-slate-900/98">
+              <div className="flex justify-between items-center mb-4 sm:hidden">
+                <span className="text-[10px] font-bold uppercase text-cyan-400">
+                  Data Labs
+                </span>
+                <button
+                  onClick={() => setShowDataMenu(false)}
+                  className="text-slate-500 p-1"
+                >
+                  ✕
+                </button>
+              </div>
+              <div className="space-y-4">
+                <div>
+                  <label className="text-[8px] font-bold text-slate-500 uppercase tracking-widest mb-2 block">
+                    Manual Array Input
+                  </label>
+                  <div className="flex gap-2">
+                    <input
+                      value={manualInput}
+                      onChange={(e) => setManualInput(e.target.value)}
+                      className="flex-1 min-w-0 bg-slate-950 border border-slate-700 rounded-lg px-2 py-2 text-[10px] font-mono text-cyan-400 focus:outline-none focus:border-cyan-500"
+                    />
+                    <button
+                      onClick={() => onManualUpdate(manualInput)}
+                      className="bg-cyan-600 text-slate-950 px-3 py-1 rounded-lg text-[8px] font-bold uppercase flex-shrink-0"
+                    >
+                      Set
+                    </button>
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    onClick={onShuffle}
+                    className="bg-slate-800 hover:bg-slate-700 py-3 rounded-lg text-[8px] font-bold uppercase"
+                  >
+                    Shuffle
+                  </button>
+                  <button
+                    onClick={onGenerate}
+                    className="bg-slate-800 hover:bg-slate-700 py-3 rounded-lg text-[8px] font-bold uppercase"
+                  >
+                    Random
+                  </button>
+                  <button
+                    onClick={() => onGeneratePattern('nearly')}
+                    className="bg-slate-800 hover:bg-slate-700 py-3 rounded-lg text-[8px] font-bold uppercase"
+                  >
+                    Nearly
+                  </button>
+                  <button
+                    onClick={() => onGeneratePattern('reversed')}
+                    className="bg-slate-800 hover:bg-slate-700 py-3 rounded-lg text-[8px] font-bold uppercase"
+                  >
+                    Reversed
+                  </button>
+                  <button
+                    onClick={() => onGeneratePattern('few-unique')}
+                    className="bg-slate-800 hover:bg-slate-700 py-3 rounded-lg text-[8px] font-bold uppercase col-span-2 text-amber-400"
+                  >
+                    Few Unique
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
 
-        <button
-          onClick={onGenerate}
-          disabled={isLocked}
-          className="px-3 h-10 rounded-lg border border-cyan-800 text-cyan-500 uppercase text-[9px] font-bold hover:bg-cyan-950/30 transition-all disabled:opacity-30"
-        >
-          ✨ Generate New
-        </button>
-
+        {/* COMPARE */}
         <div className="relative" ref={menuRef}>
           <button
-            onClick={() => setShowBenchmarkMenu(!showBenchmarkMenu)}
+            onClick={() => {
+              closeAll();
+              setShowBenchmarkMenu(!showBenchmarkMenu);
+            }}
             disabled={isLocked}
-            className="px-3 h-10 rounded-lg border border-indigo-500 text-indigo-400 uppercase text-[9px] font-bold hover:bg-indigo-950 disabled:opacity-30"
+            className={`px-3 h-10 rounded-lg border uppercase text-[9px] font-bold transition-all ${showBenchmarkMenu ? 'bg-indigo-900/40 border-indigo-400 text-indigo-400' : 'border-indigo-500 text-indigo-400 hover:bg-indigo-950'}`}
           >
-            Compare All Algorithms
+            Compare
           </button>
           {showBenchmarkMenu && (
-            <div className="absolute bottom-full mb-2 left-0 w-48 bg-slate-900 border border-slate-700 rounded-xl shadow-2xl z-50 overflow-hidden flex flex-col p-1 animate-in slide-in-from-bottom-2">
+            <div className="fixed sm:absolute top-1/3 sm:top-full left-1/2 sm:left-0 -translate-x-1/2 sm:translate-x-0 mt-0 sm:mt-2 w-[80vw] max-w-48 bg-slate-900 border border-slate-700 rounded-2xl sm:rounded-xl shadow-2xl z-[100] overflow-hidden flex flex-col p-1 animate-in fade-in zoom-in-95 duration-200 backdrop-blur-xl bg-slate-900/98">
+              <div className="px-4 py-3 border-b border-slate-800 mb-1 sm:hidden flex justify-between items-center">
+                <span className="text-[9px] font-bold uppercase text-indigo-400">
+                  Compare
+                </span>
+                <button
+                  onClick={() => setShowBenchmarkMenu(false)}
+                  className="text-slate-500 p-1"
+                >
+                  ✕
+                </button>
+              </div>
               <button
                 onClick={() => {
                   onQuickBenchmark();
                   setShowBenchmarkMenu(false);
                 }}
-                className="w-full text-left px-4 py-3 text-[9px] font-bold uppercase text-slate-300 hover:bg-indigo-600 hover:text-white rounded-lg transition-colors"
+                className="w-full text-left px-4 py-4 sm:py-3 text-[9px] font-bold uppercase text-slate-300 hover:bg-indigo-600 hover:text-white rounded-lg transition-colors"
               >
                 ⚡ Quick Comparison
               </button>
@@ -162,7 +270,7 @@ export const ControlPanel = ({
                   onVisualRun();
                   setShowBenchmarkMenu(false);
                 }}
-                className="w-full text-left px-4 py-3 text-[9px] font-bold uppercase text-slate-300 hover:bg-cyan-600 hover:text-white rounded-lg transition-colors"
+                className="w-full text-left px-4 py-4 sm:py-3 text-[9px] font-bold uppercase text-slate-300 hover:bg-cyan-600 hover:text-white rounded-lg transition-colors"
               >
                 👁️ Visual Comparison
               </button>
@@ -176,11 +284,11 @@ export const ControlPanel = ({
             disabled={isBenchmarking}
             className="px-3 h-10 rounded-lg border border-emerald-800 text-emerald-400 uppercase text-[9px] font-bold hover:bg-emerald-950"
           >
-            Start Manual
+            Manual
           </button>
         )}
 
-        <div className="flex gap-2 flex-1 min-w-[160px]">
+        <div className="flex gap-2 flex-1 min-w-[120px]">
           {!hasGenerator && !isBenchmarking ? (
             <button
               onClick={onExecute}
@@ -194,14 +302,6 @@ export const ControlPanel = ({
               className="flex-1 px-4 h-10 rounded-lg bg-rose-600 text-white font-bold uppercase text-[10px] shadow-lg shadow-rose-900/20 transition-all"
             >
               Stop
-            </button>
-          )}
-          {hasGenerator && (
-            <button
-              onClick={onTogglePause}
-              className={`px-3 h-10 rounded-lg border font-bold uppercase text-[9px] transition-all ${isPaused ? 'border-emerald-500 text-emerald-500 hover:bg-emerald-950' : 'border-amber-500 text-amber-500 hover:bg-amber-950'}`}
-            >
-              {isPaused ? 'Resume' : 'Pause'}
             </button>
           )}
         </div>

@@ -12,15 +12,15 @@ export function ExpandableSidebar({ children }: ExpandableSidebarProps) {
     <>
       {/* 1. Mobile Backdrop Overlay */}
       <div
-        className={`fixed inset-0 bg-slate-950/60 backdrop-blur-sm z-30 transition-opacity duration-300 lg:hidden ${
+        className={`fixed inset-0 bg-slate-950/60 backdrop-blur-sm z-[70] transition-opacity duration-300 lg:hidden ${
           isSidebarOpen ? 'opacity-100' : 'opacity-0 pointer-events-none'
         }`}
         onClick={() => setIsSidebarOpen(false)}
       />
 
-      {/* 2. Sidebar Container */}
+      {/* 2. Sidebar Container - Now fixed for both mobile and desktop to occupy full height */}
       <aside
-        className={`fixed lg:relative flex flex-col bg-slate-900 border-r border-slate-800 transition-all duration-300 ease-in-out z-40 h-screen
+        className={`fixed top-0 left-0 bottom-0 flex flex-col bg-slate-900 border-r border-slate-800 transition-all duration-300 ease-in-out z-[80]
           ${
             isSidebarOpen
               ? 'w-[85vw] md:w-[420px] shadow-[20px_0_60px_-15px_rgba(0,0,0,0.5)]'
@@ -35,12 +35,18 @@ export function ExpandableSidebar({ children }: ExpandableSidebarProps) {
         </div>
       </aside>
 
-      {/* 3. Toggle Button */}
+      {/* 3. Spacer for Desktop - This pushes the main content so the sidebar doesn't overlap it */}
+      <div
+        className={`hidden lg:block transition-all duration-300 ease-in-out flex-shrink-0 ${
+          isSidebarOpen ? 'w-[420px]' : 'w-0'
+        }`}
+      />
+
+      {/* 4. Toggle Button */}
       <button
         onClick={() => setIsSidebarOpen(!isSidebarOpen)}
-        className="fixed top-1/2 z-[60] flex items-center justify-center w-8 h-12 bg-slate-800 border-y border-r border-slate-700 rounded-r-xl hover:bg-cyan-600 transition-all duration-300 group shadow-2xl text-slate-400 hover:text-white pointer-events-auto"
+        className="fixed top-1/2 z-[90] flex items-center justify-center w-8 h-12 bg-slate-800 border-y border-r border-slate-700 rounded-r-xl hover:bg-cyan-600 transition-all duration-300 group shadow-2xl text-slate-400 hover:text-white pointer-events-auto"
         style={{
-          // Use dynamic calc to handle the 85vw on mobile vs 420px on desktop
           left: isSidebarOpen ? 'min(85vw, 420px)' : '0px',
           transform: 'translateY(-50%)',
         }}

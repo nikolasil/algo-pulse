@@ -57,9 +57,50 @@ export default function SortingPage() {
     stopSimulation();
     const newArray = Array.from(
       { length: arraySize },
-      () => Math.floor(Math.random() * 100) + 5,
+      () => Math.floor(Math.random() * 90) + 5,
     );
     setArray(newArray);
+  };
+
+  const handleGeneratePattern = (
+    pattern: 'nearly' | 'reversed' | 'few-unique',
+  ) => {
+    stopSimulation();
+    let newArr = Array.from(
+      { length: arraySize },
+      (_, i) => Math.floor((i / arraySize) * 90) + 5,
+    );
+
+    if (pattern === 'nearly') {
+      for (let i = 0; i < newArr.length; i++) {
+        if (Math.random() > 0.8) {
+          const j = Math.floor(Math.random() * newArr.length);
+          [newArr[i], newArr[j]] = [newArr[j], newArr[i]];
+        }
+      }
+    } else if (pattern === 'reversed') {
+      newArr.reverse();
+    } else if (pattern === 'few-unique') {
+      const values = [20, 40, 60, 80];
+      newArr = Array.from(
+        { length: arraySize },
+        () => values[Math.floor(Math.random() * values.length)],
+      );
+    }
+    setArray(newArr);
+  };
+
+  const handleUpdateManual = (input: string) => {
+    try {
+      const parsed = JSON.parse(input);
+      if (Array.isArray(parsed) && parsed.every((n) => typeof n === 'number')) {
+        stopSimulation();
+        setArray(parsed);
+        setArraySize(parsed.length);
+      }
+    } catch (e) {
+      console.error('Invalid array format');
+    }
   };
 
   const logResult = (name: string, startTime: number) => {
@@ -99,14 +140,13 @@ export default function SortingPage() {
 
     for (const algo of algorithms) {
       if (abortBenchmarkRef.current) break;
-
       setAlgorithm(algo);
       const startTime = performance.now();
       const { gen } = getAlgoData(algo);
 
       if (isVisual) {
         setSpeed(1);
-        await runSimulation(gen([...originalArray]));
+        await runSimulation(gen([...originalArray]), (val) => playTone(val));
       } else {
         const it = gen([...originalArray]);
         let res = await it.next();
@@ -123,10 +163,7 @@ export default function SortingPage() {
       }
     }
 
-    if (!abortBenchmarkRef.current) {
-      setBenchmarkResults(results);
-    }
-
+    if (!abortBenchmarkRef.current) setBenchmarkResults(results);
     setSpeed(originalSpeed);
     setIsBenchmarking(false);
     stopSimulation();
@@ -147,38 +184,7 @@ export default function SortingPage() {
   };
 
   return (
-    <main className="flex min-h-screen bg-slate-950 text-slate-100 overflow-hidden relative">
-      {benchmarkResults && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-950/80 backdrop-blur-sm p-4">
-          <div className="bg-slate-900 border border-slate-700 w-full max-w-md rounded-2xl p-6 shadow-2xl animate-in zoom-in-95 duration-200">
-            <h3 className="text-xl font-bold text-cyan-400 mb-4 uppercase tracking-tight">
-              Benchmark Results
-            </h3>
-            <div className="space-y-3 mb-6">
-              {benchmarkResults.map((res) => (
-                <div
-                  key={res.name}
-                  className="flex justify-between items-center p-3 bg-slate-800/50 rounded-lg border border-slate-700/50"
-                >
-                  <span className="text-xs font-mono uppercase text-slate-400">
-                    {res.name}
-                  </span>
-                  <span className="text-sm font-bold text-amber-400">
-                    {res.time}ms
-                  </span>
-                </div>
-              ))}
-            </div>
-            <button
-              onClick={() => setBenchmarkResults(null)}
-              className="w-full py-3 bg-cyan-600 hover:bg-cyan-500 text-slate-950 font-bold rounded-xl transition-all uppercase text-xs tracking-widest"
-            >
-              Close Report
-            </button>
-          </div>
-        </div>
-      )}
-
+    <main className="flex min-h-screen bg-slate-950 text-slate-100 relative">
       <ExpandableSidebar>
         <NavHeader title="Sort Pulse" subtitle="Diagnostic Engine" />
         <section>
@@ -215,12 +221,13 @@ export default function SortingPage() {
           isPaused={isPaused}
           isBenchmarking={isBenchmarking}
           hasGenerator={!!generatorRef.current}
+          currentArray={array}
           onSpeedChange={setSpeed}
           onSizeChange={(n) => {
             setArraySize(n);
             const newArr = Array.from(
               { length: n },
-              () => Math.floor(Math.random() * 100) + 5,
+              () => Math.floor(Math.random() * 90) + 5,
             );
             setArray(newArr);
           }}
@@ -228,10 +235,11 @@ export default function SortingPage() {
           onStepForward={stepForward}
           onShuffle={() => {
             stopSimulation();
-            const shuffled = [...array].sort(() => Math.random() - 0.5);
-            setArray(shuffled);
+            setArray([...array].sort(() => Math.random() - 0.5));
           }}
           onGenerate={handleGenerate}
+          onGeneratePattern={handleGeneratePattern}
+          onManualUpdate={handleUpdateManual}
           onQuickBenchmark={() => runFullBenchmark(false)}
           onVisualRun={() => runFullBenchmark(true)}
           onExecute={handleExecute}
@@ -273,6 +281,41 @@ export default function SortingPage() {
           ))}
         </div>
       </section>
+
+      {/* Benchmark Modal */}
+      {benchmarkResults && (
+        <div className="fixed inset-x-0 bottom-0 z-[100] flex items-end justify-center bg-slate-950/40 backdrop-blur-sm p-4 animate-in fade-in duration-300">
+          <div className="bg-slate-900 border border-slate-700 w-full max-w-lg rounded-t-3xl p-6 shadow-2xl animate-in slide-in-from-bottom-full duration-500 flex flex-col max-h-[70vh]">
+            <div className="w-12 h-1.5 bg-slate-700 rounded-full mx-auto mb-6 flex-shrink-0" />
+            <h3 className="text-xl font-bold text-cyan-400 mb-4 uppercase tracking-tight flex-shrink-0 text-center">
+              Diagnostic Report
+            </h3>
+
+            <div className="space-y-3 mb-6 overflow-y-auto pr-2 custom-scrollbar flex-1">
+              {benchmarkResults.map((res) => (
+                <div
+                  key={res.name}
+                  className="flex justify-between items-center p-4 bg-slate-800/80 rounded-2xl border border-slate-700/50"
+                >
+                  <span className="text-xs font-mono uppercase text-slate-400 font-bold tracking-widest">
+                    {res.name}
+                  </span>
+                  <span className="text-sm font-bold text-amber-400">
+                    {res.time}ms
+                  </span>
+                </div>
+              ))}
+            </div>
+
+            <button
+              onClick={() => setBenchmarkResults(null)}
+              className="w-full py-4 bg-cyan-600 hover:bg-cyan-500 text-slate-950 font-bold rounded-2xl transition-all uppercase text-xs tracking-widest flex-shrink-0 shadow-lg shadow-cyan-900/40"
+            >
+              Dismiss Report
+            </button>
+          </div>
+        </div>
+      )}
     </main>
   );
 }
