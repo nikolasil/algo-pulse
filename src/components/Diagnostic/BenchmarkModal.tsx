@@ -5,6 +5,7 @@ interface RawBenchmarkData {
   name: string;
   time: number;
   complexity: string;
+  success: boolean;
 }
 
 interface BenchmarkModalProps {
@@ -20,7 +21,6 @@ export function BenchmarkModal({
   onClose,
   onReRun,
 }: BenchmarkModalProps) {
-  // Logic: Calculate performance metrics locally
   const results = useMemo(() => {
     const fastestTime = Math.min(...data.map((r) => r.time));
     return data.map((r) => ({
@@ -120,17 +120,29 @@ export function BenchmarkModal({
                       <h4 className="text-xs font-bold text-slate-200">
                         {res.name}
                       </h4>
-                      <span
-                        className={`text-[8px] font-bold px-1 py-0.5 rounded ${res.isFastest ? 'bg-cyan-500/20 text-cyan-400' : 'bg-slate-700 text-slate-500'}`}
-                      >
-                        {res.delta}
-                      </span>
+                      <div className="flex items-center gap-1.5">
+                        <span
+                          className={`text-[8px] font-bold px-1 py-0.5 rounded ${res.isFastest ? 'bg-cyan-500/20 text-cyan-400' : 'bg-slate-700 text-slate-500'}`}
+                        >
+                          {res.delta}
+                        </span>
+                        <span
+                          className={`text-[7px] font-black uppercase px-1 py-0.5 rounded ${res.success ? 'bg-emerald-500/10 text-emerald-500' : 'bg-rose-500/10 text-rose-500'}`}
+                        >
+                          {res.success ? 'Found' : 'Miss'}
+                        </span>
+                      </div>
                     </div>
                   </div>
-                  <div
-                    className={`text-sm font-mono font-bold ${res.isFastest ? 'text-cyan-400' : 'text-slate-300'}`}
-                  >
-                    {res.time}ms
+                  <div className="text-right">
+                    <div
+                      className={`text-sm font-mono font-bold ${res.isFastest ? 'text-cyan-400' : 'text-slate-300'}`}
+                    >
+                      {res.time}ms
+                    </div>
+                    <div className="text-[8px] text-slate-500 font-mono uppercase">
+                      {res.complexity}
+                    </div>
                   </div>
                 </div>
               ))}

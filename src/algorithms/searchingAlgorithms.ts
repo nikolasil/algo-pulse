@@ -11,13 +11,17 @@ export async function* linearSearch(
   target: number,
 ): AsyncGenerator<any> {
   for (let i = 0; i < array.length; i++) {
-    yield { line: 2, comparing: [i] }; // for (let i = 0; i < arr.length; i++)
+    // Highlight the loop iteration
+    yield { line: 2, comparing: [i] };
+
+    // Highlight the comparison and return if found
     if (array[i] === target) {
-      yield { line: 3, found: i }; // if (arr[i] === target) return i;
+      yield { line: 3, found: i };
       return;
     }
   }
-  yield { line: 5 }; // return -1;
+  // Highlight the final return if not found
+  yield { line: 5 };
 }
 
 // --- BINARY SEARCH ---
@@ -38,27 +42,27 @@ export async function* binarySearch(
 ): AsyncGenerator<any> {
   let low = 0,
     high = array.length - 1;
-  yield { line: 2 }; // let low = 0, high = arr.length - 1;
+  yield { line: 2 };
 
   while (low <= high) {
-    yield { line: 3, range: [low, high] }; // while (low <= high)
+    yield { line: 3, range: [low, high] };
     let mid = Math.floor((low + high) / 2);
-    yield { line: 4, comparing: [mid] }; // let mid = Math.floor...
+    yield { line: 4, comparing: [mid] };
 
     if (array[mid] === target) {
-      yield { line: 5, found: mid }; // if (arr[mid] === target) return mid;
+      yield { line: 5, found: mid };
       return;
     }
 
     if (array[mid] < target) {
-      yield { line: 6 }; // if (arr[mid] < target) low = mid + 1;
+      yield { line: 6 };
       low = mid + 1;
     } else {
-      yield { line: 7 }; // else high = mid - 1;
+      yield { line: 7 };
       high = mid - 1;
     }
   }
-  yield { line: 9 }; // return -1;
+  yield { line: 9 };
 }
 
 // --- JUMP SEARCH ---
@@ -87,38 +91,43 @@ export async function* jumpSearch(
   let step = Math.floor(Math.sqrt(n));
   let prev = 0;
 
-  yield { line: 2 }; // let n = arr.length;
-  yield { line: 3 }; // let step = ...
-  yield { line: 4 }; // let prev = 0;
+  yield { line: 2 };
+  yield { line: 3 };
+  yield { line: 4 };
 
   // Jumping phase
   while (array[Math.min(step, n) - 1] < target) {
-    yield { line: 5, comparing: [Math.min(step, n) - 1] }; // while loop check
+    yield {
+      line: 5,
+      comparing: [Math.min(step, n) - 1],
+      range: [prev, Math.min(step, n) - 1],
+    };
     prev = step;
-    yield { line: 6 }; // prev = step;
+    yield { line: 6 };
     step += Math.floor(Math.sqrt(n));
-    yield { line: 7 }; // step += ...
+    yield { line: 7 };
     if (prev >= n) {
-      yield { line: 8 }; // if (prev >= n) return -1;
+      yield { line: 8 };
       return;
     }
   }
 
   // Linear phase within the block
-  yield { line: 10 }; // while (arr[prev] < target)
+  yield { line: 10, range: [prev, Math.min(step, n) - 1] };
   while (array[prev] < target) {
-    yield { line: 11, comparing: [prev] }; // prev++;
+    yield { line: 11, comparing: [prev] };
     prev++;
     if (prev === Math.min(step, n)) {
-      yield { line: 12 }; // if (prev == ...) return -1;
+      yield { line: 12 };
       return;
     }
   }
 
-  yield { line: 14 }; // if (arr[prev] == target)
+  // Final check
+  yield { line: 14, comparing: [prev] };
   if (array[prev] === target) {
-    yield { line: 14, found: prev }; // return prev;
+    yield { line: 14, found: prev };
   } else {
-    yield { line: 15 }; // return -1;
+    yield { line: 15 };
   }
 }
