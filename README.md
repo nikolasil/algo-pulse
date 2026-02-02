@@ -9,7 +9,6 @@
 * **⏱️ Benchmark Mode**: Real-time telemetry tracking comparisons between $O(n^2)$ and $O(n \log n)$ algorithms on identical datasets.
 * **📜 Telemetry History**: Persistent results panel tracking execution time (ms), swap counts, and comparison metrics.
 * **📱 Adaptive UI**: Fully responsive, dark-themed dashboard built with Tailwind CSS and Framer Motion for smooth transitions.
-* **🔊 Audio Sonification**: Real-time sound synthesis using the Web Audio API, where array values are mapped to frequencies ($f = 200 + (val \times 2)$) for an immersive debugging experience.
 
 ## 🛠️ Technical Stack
 
