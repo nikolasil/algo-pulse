@@ -10,22 +10,11 @@ import { StatCard } from '@/components/Diagnostic/StatCard';
 import { TelemetryLog } from '@/components/Diagnostic/TelemetryLog';
 import { ExpandableSidebar } from '@/components/Diagnostic/ExpandableSidebar';
 import { BenchmarkModal } from '@/components/Diagnostic/BenchmarkModal';
-
-import {
-  linearSearch,
-  linearSearchCode,
-  binarySearch,
-  binarySearchCode,
-  jumpSearch,
-  jumpSearchCode,
-} from '@/algorithms/searchingAlgorithms';
-
-type SearchAlgo = 'Linear' | 'Binary' | 'Jump';
+import { AlgorithmType, useSearchingLogic } from '@/hooks/useSearchingLogic';
 
 export default function SearchingPage() {
   const [arraySize, setArraySize] = useState(30);
   const [target, setTarget] = useState<number>(0);
-  const [algorithm, setAlgorithm] = useState<SearchAlgo>('Linear');
   const [history, setHistory] = useState<
     {
       id: number;
@@ -35,7 +24,6 @@ export default function SearchingPage() {
       success: boolean;
     }[]
   >([]);
-  const [isBenchmarking, setIsBenchmarking] = useState(false);
   const [benchmarkData, setBenchmarkData] = useState<
     | { name: string; time: number; complexity: string; success: boolean }[]
     | null
@@ -87,24 +75,13 @@ export default function SearchingPage() {
     }
   }, [array, hasGenerator]);
 
-  const getAlgoData = useCallback((type: SearchAlgo) => {
-    switch (type) {
-      case 'Binary':
-        return {
-          gen: binarySearch,
-          code: binarySearchCode,
-          complexity: 'O(log n)',
-        };
-      case 'Jump':
-        return { gen: jumpSearch, code: jumpSearchCode, complexity: 'O(√n)' };
-      default:
-        return {
-          gen: linearSearch,
-          code: linearSearchCode,
-          complexity: 'O(n)',
-        };
-    }
-  }, []);
+  const {
+    algorithm,
+    setAlgorithm,
+    isBenchmarking,
+    setIsBenchmarking,
+    getAlgoData,
+  } = useSearchingLogic();
 
   const handleStopAll = () => {
     abortBenchmarkRef.current = true;
@@ -171,7 +148,7 @@ export default function SearchingPage() {
     setIsBenchmarking(true);
     abortRef.current = false;
     stopSimulation();
-    const algos: SearchAlgo[] = ['Linear', 'Binary', 'Jump'];
+    const algos: AlgorithmType[] = ['Linear', 'Binary', 'Jump'];
     const results: {
       name: string;
       time: number;
@@ -244,7 +221,7 @@ export default function SearchingPage() {
               Select Algorithm
             </h2>
             <div className="flex gap-1">
-              {(['Linear', 'Binary', 'Jump'] as SearchAlgo[]).map((type) => (
+              {(['Linear', 'Binary', 'Jump'] as AlgorithmType[]).map((type) => (
                 <button
                   key={type}
                   onClick={() => {
