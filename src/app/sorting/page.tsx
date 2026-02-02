@@ -11,12 +11,21 @@ import { NavHeader } from '@/components/NavHeader';
 import { StatCard } from '@/components/Diagnostic/StatCard';
 import { TelemetryLog } from '@/components/Diagnostic/TelemetryLog';
 import { ExpandableSidebar } from '@/components/Diagnostic/ExpandableSidebar';
+import { BenchmarkModal } from '@/components/Diagnostic/BenchmarkModal'; // Imported new component
+
+interface EnhancedBenchmarkResult {
+  name: string;
+  time: number;
+  complexity: string;
+  isFastest: boolean;
+  delta: string;
+}
 
 export default function SortingPage() {
   const [arraySize, setArraySize] = useState(50);
   const [history, setHistory] = useState<any[]>([]);
   const [benchmarkResults, setBenchmarkResults] = useState<
-    { name: string; time: number }[] | null
+    EnhancedBenchmarkResult[] | null
   >(null);
 
   const [executionTime, setExecutionTime] = useState(0);
@@ -123,7 +132,6 @@ export default function SortingPage() {
     }
   };
 
-  // Fixed: logResult now takes explicit duration to avoid state lag
   const logResult = (name: string, duration: number) => {
     setHistory((prev) =>
       [
@@ -145,22 +153,16 @@ export default function SortingPage() {
     setIsBenchmarking(false);
   };
 
-  // Fixed: Calculate duration locally using a timestamp to ensure Telemetry Log is correct
   const handleExecute = async () => {
     const { gen } = getAlgoData(algorithm);
     stopSimulation();
-
-    const startTime = performance.now(); // Local high-res timestamp
-    startTimer(); // Visual UI timer
-
+    const startTime = performance.now();
+    startTimer();
     await runSimulation(gen([...array]), (val) => playTone(val));
-
     stopTimer();
-    const endTime = performance.now();
-    const finalDuration = endTime - startTime;
-
-    setExecutionTime(finalDuration); // Update final UI state
-    logResult(algorithm, finalDuration); // Log the exact duration locally
+    const finalDuration = performance.now() - startTime;
+    setExecutionTime(finalDuration);
+    logResult(algorithm, finalDuration);
   };
 
   const runFullBenchmark = async (isVisual: boolean) => {
@@ -170,18 +172,16 @@ export default function SortingPage() {
     setExecutionTime(0);
 
     const algorithms: AlgorithmType[] = ['Bubble', 'Quick', 'Merge'];
-    const results: { name: string; time: number }[] = [];
+    const rawResults: { name: string; time: number; complexity: string }[] = [];
     const originalArray = [...array];
     const originalSpeed = speed;
 
     for (const algo of algorithms) {
       if (abortBenchmarkRef.current) break;
       setAlgorithm(algo);
-
       const startTime = performance.now();
       startTimer();
-
-      const { gen } = getAlgoData(algo);
+      const { gen, complexity } = getAlgoData(algo);
 
       if (isVisual) {
         setSpeed(1);
@@ -195,18 +195,32 @@ export default function SortingPage() {
       }
 
       stopTimer();
-      const endTime = performance.now();
-      const finalDuration = endTime - startTime;
-
+      const finalDuration = performance.now() - startTime;
       if (!abortBenchmarkRef.current) {
-        results.push({ name: algo, time: Math.round(finalDuration) });
+        rawResults.push({
+          name: algo,
+          time: Math.round(finalDuration),
+          complexity,
+        });
         logResult(algo, finalDuration);
         setArray(originalArray);
         await new Promise((r) => setTimeout(r, 500));
       }
     }
 
-    if (!abortBenchmarkRef.current) setBenchmarkResults(results);
+    if (!abortBenchmarkRef.current) {
+      const times = rawResults.map((r) => r.time);
+      const fastestTime = Math.min(...times);
+      const enhanced = rawResults.map((r) => ({
+        ...r,
+        isFastest: r.time === fastestTime,
+        delta:
+          r.time === fastestTime
+            ? 'FASTEST'
+            : `+${(((r.time - fastestTime) / fastestTime) * 100).toFixed(0)}%`,
+      }));
+      setBenchmarkResults(enhanced);
+    }
     setSpeed(originalSpeed);
     setIsBenchmarking(false);
     stopSimulation();
@@ -261,7 +275,7 @@ export default function SortingPage() {
         <TelemetryLog history={history} />
       </ExpandableSidebar>
 
-      <section className="flex-1 p-6 lg:p-10 flex flex-col gap-6 relative min-w-0">
+      <section className="flex-1 p-4 sm:p-6 lg:p-10 flex flex-col gap-6 relative min-w-0">
         <ControlPanel
           size={arraySize}
           sizeShower={true}
@@ -297,16 +311,12 @@ export default function SortingPage() {
         />
 
         <div className="grid grid-cols-2 lg:grid-cols-6 gap-4">
-          <StatCard
-            label="Algorithm"
-            value={algorithm}
-            highlight={true}
-          />
+          <StatCard label="Algorithm" value={algorithm} highlight={true} />
           <StatCard
             label="Phase"
             value={
               isBenchmarking
-                ? 'BENCHMARK...'
+                ? 'BENCHMARKING'
                 : !!generatorRef.current
                   ? isPaused
                     ? 'PAUSED'
@@ -328,7 +338,7 @@ export default function SortingPage() {
           <StatCard label="Cycle Speed" value={`${speed}ms`} />
         </div>
 
-        <div className="relative flex-1 min-h-[400px] w-full bg-slate-950 rounded-3xl border border-slate-800/50 flex items-end justify-center px-4 pb-2 gap-[2px] overflow-hidden">
+        <div className="relative flex-1 min-h-[400px] w-full bg-slate-950 rounded-3xl border border-slate-800/50 flex items-end justify-center px-4 pb-2 gap-[1px] sm:gap-[2px] overflow-hidden">
           {array.map((val, idx) => (
             <VisualizerBar
               key={idx}
@@ -340,41 +350,17 @@ export default function SortingPage() {
         </div>
       </section>
 
+      {/* RENDER NEW COMPONENT */}
       {benchmarkResults && (
-        <div className="fixed inset-x-0 bottom-0 z-[100] flex items-end justify-center bg-slate-950/40 backdrop-blur-sm p-4 animate-in fade-in duration-300">
-          <div className="bg-slate-900 border border-slate-700 w-full max-w-lg rounded-t-3xl p-6 shadow-2xl animate-in slide-in-from-bottom-full duration-500 flex flex-col max-h-[70vh]">
-            <div className="w-12 h-1.5 bg-slate-700 rounded-full mx-auto mb-6 flex-shrink-0" />
-            <h3 className="text-xl font-bold text-cyan-400 mb-4 uppercase tracking-tight flex-shrink-0 text-center">
-              Diagnostic Report
-            </h3>
-
-            <div className="space-y-3 mb-6 overflow-y-auto pr-2 custom-scrollbar flex-1">
-              {benchmarkResults.map((res) => (
-                <div
-                  key={res.name}
-                  className="flex justify-between items-center p-4 bg-slate-800/80 rounded-2xl border border-slate-700/50"
-                >
-                  <span className="text-xs font-mono uppercase text-slate-400 font-bold tracking-widest">
-                    {res.name}
-                  </span>
-                  <span className="text-sm font-bold text-amber-400">
-                    {res.time}ms
-                  </span>
-                </div>
-              ))}
-            </div>
-
-            <button
-              onClick={() => {
-                setBenchmarkResults(null);
-                setExecutionTime(0);
-              }}
-              className="w-full py-4 bg-cyan-600 hover:bg-cyan-500 text-slate-950 font-bold rounded-2xl transition-all uppercase text-xs tracking-widest flex-shrink-0 shadow-lg shadow-cyan-900/40"
-            >
-              Dismiss Report
-            </button>
-          </div>
-        </div>
+        <BenchmarkModal
+          results={benchmarkResults}
+          arraySize={array.length}
+          onClose={() => setBenchmarkResults(null)}
+          onReRun={() => {
+            setBenchmarkResults(null);
+            runFullBenchmark(false);
+          }}
+        />
       )}
     </main>
   );
