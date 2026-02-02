@@ -225,7 +225,7 @@ export const ControlPanel = ({
                       <input
                         type="range"
                         min="5"
-                        max="100"
+                        max="50"
                         value={size}
                         step={1}
                         disabled={isLocked}

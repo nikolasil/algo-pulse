@@ -50,12 +50,12 @@ async function* reconstructPath(grid: Node[][], endNode: Node, line: number) {
   while (current !== null) {
     current.isPath = true;
     current = current.previousNode;
+    // Visually update the path
     yield { grid: cloneGrid(grid), line };
   }
 }
 
-// --- ALGORITHMS ---
-
+// --- DIJKSTRA ---
 export async function* dijkstra(
   grid: Node[][],
   startNode: Node,
@@ -65,17 +65,19 @@ export async function* dijkstra(
   const unvisited = grid.flat();
 
   while (unvisited.length > 0) {
-    unvisited.sort((a, b) => a.distance - b.distance); // Line 4
-    const curr = unvisited.shift();
+    unvisited.sort((a, b) => a.distance - b.distance);
+    yield { line: 4 }; // Highlight Sort (Fast: No clone)
 
+    const curr = unvisited.shift();
     if (!curr || curr.isWall || curr.distance === Infinity) continue;
 
     if (curr.row === endNode.row && curr.col === endNode.col) {
-      yield* reconstructPath(grid, curr, 8); // Line 8: getPath
+      yield* reconstructPath(grid, curr, 8);
       return;
     }
 
-    curr.isVisited = true; // Line 7
+    curr.isVisited = true;
+    yield { grid: cloneGrid(grid), line: 7 }; // Highlight Visited (Visual change: Clone)
 
     const neighbors = getNeighbors(curr, grid);
     for (const neighbor of neighbors) {
@@ -86,10 +88,11 @@ export async function* dijkstra(
         neighbor.previousNode = curr;
       }
     }
-    yield { grid: cloneGrid(grid), line: 9 }; // Line 9: updateNeighbors
+    yield { line: 9 }; // Highlight Neighbors update (Fast: No clone)
   }
 }
 
+// --- A* ---
 export async function* aStar(
   grid: Node[][],
   startNode: Node,
@@ -102,17 +105,19 @@ export async function* aStar(
   const openSet = [startNode];
 
   while (openSet.length > 0) {
-    openSet.sort((a, b) => a.totalCost - b.totalCost); // Line 3
-    const curr = openSet.shift();
+    openSet.sort((a, b) => a.totalCost - b.totalCost);
+    yield { line: 3 }; // Highlight getLowestTotalCost
 
+    const curr = openSet.shift();
     if (!curr || curr.isWall) continue;
 
     if (curr.row === endNode.row && curr.col === endNode.col) {
-      yield* reconstructPath(grid, curr, 4); // Line 4: getPath
+      yield* reconstructPath(grid, curr, 4);
       return;
     }
 
-    curr.isVisited = true; // Line 5
+    curr.isVisited = true;
+    yield { grid: cloneGrid(grid), line: 5 }; // Highlight Visited (Visual change)
 
     const neighbors = getNeighbors(curr, grid);
     for (const neighbor of neighbors) {
@@ -126,19 +131,21 @@ export async function* aStar(
         if (!openSet.includes(neighbor)) openSet.push(neighbor);
       }
     }
-    yield { grid: cloneGrid(grid), line: 6 }; // Line 6: updateAStarNeighbors
+    yield { line: 6 }; // Highlight Neighbors update
   }
 }
 
+// --- BFS ---
 export async function* bfs(grid: Node[][], startNode: Node, endNode: Node) {
   const queue: Node[] = [startNode];
   startNode.isVisited = true;
 
   while (queue.length > 0) {
-    const curr = queue.shift()!; // Line 3
+    const curr = queue.shift()!;
+    yield { line: 3 }; // Highlight shift
 
     if (curr.row === endNode.row && curr.col === endNode.col) {
-      yield* reconstructPath(grid, curr, 4); // Line 4: backtrace
+      yield* reconstructPath(grid, curr, 4);
       return;
     }
 
@@ -150,23 +157,27 @@ export async function* bfs(grid: Node[][], startNode: Node, endNode: Node) {
         queue.push(neighbor);
       }
     }
-    yield { grid: cloneGrid(grid), line: 5 }; // Line 5: for (neighbor...)
+    yield { grid: cloneGrid(grid), line: 5 }; // Highlight Neighbors (Visual change)
   }
 }
 
+// --- DFS ---
 export async function* dfs(grid: Node[][], startNode: Node, endNode: Node) {
   const stack: Node[] = [startNode];
 
   while (stack.length > 0) {
-    const curr = stack.pop()!; // Line 3
+    const curr = stack.pop()!;
+    yield { line: 3 }; // Highlight pop
 
     if (curr.row === endNode.row && curr.col === endNode.col) {
-      yield* reconstructPath(grid, curr, 4); // Line 4: backtrace
+      yield* reconstructPath(grid, curr, 4);
       return;
     }
 
     if (!curr.isVisited) {
-      curr.isVisited = true; // Line 6
+      curr.isVisited = true;
+      yield { grid: cloneGrid(grid), line: 6 }; // Highlight Visited (Visual change)
+
       const neighbors = getNeighbors(curr, grid);
       for (const neighbor of neighbors) {
         if (!neighbor.isVisited) {
@@ -174,11 +185,12 @@ export async function* dfs(grid: Node[][], startNode: Node, endNode: Node) {
           stack.push(neighbor);
         }
       }
-      yield { grid: cloneGrid(grid), line: 7 }; // Line 7: stack.push
+      yield { line: 7 }; // Highlight Neighbors update
     }
   }
 }
 
+// --- GREEDY BEST-FIRST ---
 export async function* greedyBestFirst(
   grid: Node[][],
   startNode: Node,
@@ -189,17 +201,19 @@ export async function* greedyBestFirst(
   const openSet = [startNode];
 
   while (openSet.length > 0) {
-    openSet.sort((a, b) => a.heuristic - b.heuristic); // Line 3
-    const curr = openSet.shift();
+    openSet.sort((a, b) => a.heuristic - b.heuristic);
+    yield { line: 3 }; // Highlight getLowestHeuristic
 
+    const curr = openSet.shift();
     if (!curr || curr.isWall || curr.isVisited) continue;
 
     if (curr.row === endNode.row && curr.col === endNode.col) {
-      yield* reconstructPath(grid, curr, 4); // Line 4: getPath
+      yield* reconstructPath(grid, curr, 4);
       return;
     }
 
-    curr.isVisited = true; // Line 5
+    curr.isVisited = true;
+    yield { grid: cloneGrid(grid), line: 5 }; // Highlight Visited
 
     const neighbors = getNeighbors(curr, grid);
     for (const neighbor of neighbors) {
@@ -209,51 +223,50 @@ export async function* greedyBestFirst(
         if (!openSet.includes(neighbor)) openSet.push(neighbor);
       }
     }
-    yield { grid: cloneGrid(grid), line: 6 }; // Line 6: updateGreedy
+    yield { line: 6 }; // Highlight Neighbors update
   }
 }
 
-// --- DISPLAY STRINGS ---
-
+// --- DISPLAY STRINGS (Kept as provided) ---
 export const dijkstraCode = `function dijkstra(grid, start, end) {
   start.distance = 0;
   const unvisited = grid.flat();
   while (unvisited.length) {
-    sortNodesByDistance(unvisited); // Line 4
+    sortNodesByDistance(unvisited); 
     const curr = unvisited.shift();
     if (curr.isWall) continue;
-    curr.isVisited = true; // Line 7
-    if (curr === end) return getPath(end); // Line 8
-    updateNeighbors(curr, grid); // Line 9
+    curr.isVisited = true; 
+    if (curr === end) return getPath(end); 
+    updateNeighbors(curr, grid); 
   }
 }`;
 
 export const aStarCode = `function aStar(grid, start, end) {
   openSet.push(start);
   while (openSet.length) {
-    const curr = getLowestTotalCost(openSet); // Line 3
-    if (curr === end) return getPath(end); // Line 4
-    curr.isVisited = true; // Line 5
-    updateAStarNeighbors(curr, end); // Line 6
+    const curr = getLowestTotalCost(openSet); 
+    if (curr === end) return getPath(end); 
+    curr.isVisited = true; 
+    updateAStarNeighbors(curr, end); 
   }
 }`;
 
 export const greedyCode = `function greedyBestFirst(grid, start, end) {
   openSet.push(start);
   while (openSet.length) {
-    const curr = getLowestHeuristic(openSet); // Line 3
-    if (curr === end) return getPath(end); // Line 4
-    curr.isVisited = true; // Line 5
-    updateGreedyNeighbors(curr, end); // Line 6
+    const curr = getLowestHeuristic(openSet); 
+    if (curr === end) return getPath(end); 
+    curr.isVisited = true; 
+    updateGreedyNeighbors(curr, end); 
   }
 }`;
 
 export const bfsCode = `function bfs(start, end) {
   const queue = [start];
   while (queue.length > 0) {
-    const curr = queue.shift(); // Line 3
-    if (curr === end) return backtrace(end); // Line 4
-    for (const neighbor of getNeighbors(curr)) { // Line 5
+    const curr = queue.shift(); 
+    if (curr === end) return backtrace(end); 
+    for (const neighbor of getNeighbors(curr)) { 
       if (!neighbor.visited) {
         neighbor.parent = curr;
         queue.push(neighbor);
@@ -265,11 +278,11 @@ export const bfsCode = `function bfs(start, end) {
 export const dfsCode = `function dfs(start, end) {
   const stack = [start];
   while (stack.length > 0) {
-    const curr = stack.pop(); // Line 3
-    if (curr === end) return backtrace(end); // Line 4
+    const curr = stack.pop(); 
+    if (curr === end) return backtrace(end); 
     if (!curr.visited) {
-      curr.visited = true; // Line 6
-      stack.push(...neighbors); // Line 7
+      curr.visited = true; 
+      stack.push(...neighbors); 
     }
   }
 }`;
