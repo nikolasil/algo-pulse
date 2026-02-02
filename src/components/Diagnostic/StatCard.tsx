@@ -13,7 +13,7 @@ export function StatCard({
         {label}
       </div>
       <div
-        className={`text-sm font-bold mt-1 ${highlight ? 'text-rose-500 animate-pulse' : 'text-slate-200'}`}
+        className={`text-sm font-bold mt-1 ${highlight ? 'text-green-500 animate-pulse' : 'text-slate-200'}`}
       >
         {value}
       </div>

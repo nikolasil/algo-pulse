@@ -77,8 +77,7 @@ export const ControlPanel = ({
   };
 
   return (
-    <div className="flex flex-col gap-6 bg-slate-900/50 p-6 rounded-2xl border border-slate-800 w-full relative z-10">
-      {/* MOBILE BACKDROP */}
+    <div className="flex flex-col gap-4 bg-slate-900/50 p-5 rounded-2xl border border-slate-800 w-full relative z-10">
       {(showBenchmarkMenu || showDataMenu) && (
         <div
           className="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-[95] sm:hidden animate-in fade-in duration-200"
@@ -86,63 +85,20 @@ export const ControlPanel = ({
         />
       )}
 
-      <div className="flex flex-wrap gap-8 items-center border-b border-slate-800/50 pb-6">
-        {sizeShower && (
-          <div className="flex flex-col gap-1 flex-1 min-w-[140px]">
-            <div className="flex justify-between items-center">
-              <label className="text-[10px] font-mono text-slate-500 uppercase tracking-widest">
-                Size
-              </label>
-              <span className="text-[10px] font-mono text-cyan-400">
-                {size}
-              </span>
-            </div>
-            <input
-              type="range"
-              min="5"
-              max="100"
-              value={size}
-              disabled={isLocked}
-              onChange={(e) => onSizeChange(Number(e.target.value))}
-              className="w-full accent-cyan-500 cursor-pointer disabled:opacity-30"
-            />
-          </div>
-        )}
-        <div className="flex flex-col gap-1 flex-1 min-w-[140px]">
-          <div className="flex justify-between items-center">
-            <label className="text-[10px] font-mono text-slate-500 uppercase tracking-widest">
-              Speed
-            </label>
-            <span className="text-[10px] font-mono text-amber-400">
-              {speed}ms
-            </span>
-          </div>
-          <input
-            type="range"
-            min="1"
-            max="400"
-            step="5"
-            value={speed}
-            disabled={isLocked}
-            onChange={(e) => onSpeedChange(Number(e.target.value))}
-            className="w-full accent-amber-500 cursor-pointer disabled:opacity-30"
-          />
-        </div>
-      </div>
-
-      <div className="flex flex-wrap gap-3 items-center">
+      <div className="flex flex-wrap gap-4 items-center">
+        {/* Playback Controls */}
         <div className="flex gap-1">
           <button
             onClick={onStepBack}
             disabled={!hasGenerator || !isPaused || isBenchmarking}
-            className="w-10 h-10 rounded-lg border border-slate-700 hover:bg-slate-800 text-[8px] font-bold uppercase disabled:opacity-20"
+            className="w-10 h-10 rounded-lg border border-slate-700 hover:bg-slate-800 text-[8px] font-bold uppercase disabled:opacity-20 transition-colors"
           >
             Prev
           </button>
           <button
             onClick={onStepForward}
             disabled={!hasGenerator || !isPaused || isBenchmarking}
-            className="w-10 h-10 rounded-lg border border-slate-700 hover:bg-slate-800 text-[8px] font-bold uppercase disabled:opacity-20"
+            className="w-10 h-10 rounded-lg border border-slate-700 hover:bg-slate-800 text-[8px] font-bold uppercase disabled:opacity-20 transition-colors"
           >
             Next
           </button>
@@ -150,159 +106,217 @@ export const ControlPanel = ({
 
         <div className="h-6 w-[1px] bg-slate-800 mx-1 hidden sm:block" />
 
-        {/* DATA LABS */}
-        <div className="relative" ref={dataRef}>
-          <button
-            onClick={() => {
-              closeAll();
-              setShowDataMenu(!showDataMenu);
-            }}
-            disabled={isLocked}
-            className={`px-4 h-10 rounded-lg border uppercase text-[9px] font-bold transition-all flex items-center gap-2 ${showDataMenu ? 'bg-cyan-900/40 border-cyan-500 text-cyan-400' : 'bg-slate-800 border-slate-600 text-slate-200 hover:bg-slate-700'}`}
-          >
-            📊 Data Labs
-          </button>
-          {showDataMenu && (
-            <div className="fixed sm:absolute top-1/3 sm:top-full left-1/2 sm:left-0 -translate-x-1/2 sm:translate-x-0 mt-0 sm:mt-2 w-[90vw] max-w-72 bg-slate-900 border border-slate-700 rounded-2xl sm:rounded-xl shadow-2xl z-[100] p-5 animate-in fade-in zoom-in-95 duration-200 backdrop-blur-xl bg-slate-900/98">
-              <div className="flex justify-between items-center mb-4 sm:hidden">
-                <span className="text-[10px] font-bold uppercase text-cyan-400">
-                  Data Labs
-                </span>
-                <button
-                  onClick={() => setShowDataMenu(false)}
-                  className="text-slate-500 p-1"
-                >
-                  ✕
-                </button>
-              </div>
-              <div className="space-y-4">
-                <div>
-                  <label className="text-[8px] font-bold text-slate-500 uppercase tracking-widest mb-2 block">
-                    Manual Array Input
-                  </label>
-                  <div className="flex gap-2">
-                    <input
-                      value={manualInput}
-                      onChange={(e) => setManualInput(e.target.value)}
-                      className="flex-1 min-w-0 bg-slate-950 border border-slate-700 rounded-lg px-2 py-2 text-[10px] font-mono text-cyan-400 focus:outline-none focus:border-cyan-500"
-                    />
+        {/* Speed Engine Slider - Integrated into main row */}
+        <div className="flex items-center gap-3 px-4 py-2 bg-slate-800/40 rounded-xl border border-slate-700/50 min-w-[180px] flex-1 lg:flex-none">
+          <label className="text-[8px] font-bold text-slate-500 uppercase tracking-tighter">
+            Speed
+          </label>
+          <input
+            type="range"
+            min="1"
+            max="1000"
+            step="1"
+            value={speed}
+            disabled={isLocked && !isPaused}
+            onChange={(e) => onSpeedChange(Number(e.target.value))}
+            className="flex-1 accent-amber-500 h-1.5 cursor-pointer disabled:opacity-30"
+          />
+          <span className="text-[10px] font-mono text-amber-400 w-8 text-right">
+            {speed}
+          </span>
+        </div>
+
+        <div className="h-6 w-[1px] bg-slate-800 mx-1 hidden lg:block" />
+
+        {/* Action Menus */}
+        <div className="flex gap-2">
+          {/* Data Labs Pop-up */}
+          <div className="relative" ref={dataRef}>
+            <button
+              onClick={() => {
+                closeAll();
+                setShowDataMenu(!showDataMenu);
+              }}
+              disabled={isLocked}
+              className={`px-4 h-10 rounded-lg border uppercase text-[9px] font-bold transition-all flex items-center gap-2 ${showDataMenu ? 'bg-cyan-900/40 border-cyan-500 text-cyan-400' : 'bg-slate-800 border-slate-600 text-slate-200 hover:bg-slate-700'}`}
+            >
+              📊 Data Labs
+            </button>
+            {showDataMenu && (
+              <div className="fixed sm:absolute top-1/3 sm:top-full left-1/2 sm:left-0 -translate-x-1/2 sm:translate-x-0 mt-0 sm:mt-2 w-[90vw] max-w-72 bg-slate-900 border border-slate-700 rounded-2xl shadow-2xl z-[100] p-5 animate-in fade-in zoom-in-95 duration-200 backdrop-blur-xl bg-slate-900/98">
+                <div className="flex justify-between items-center mb-4 sm:hidden">
+                  <span className="text-[10px] font-bold uppercase text-cyan-400">
+                    Data Labs
+                  </span>
+                  <button
+                    onClick={() => setShowDataMenu(false)}
+                    className="text-slate-500 p-1"
+                  >
+                    ✕
+                  </button>
+                </div>
+                <div className="space-y-5">
+                  {/* Size is now inside Data Labs */}
+                  {sizeShower && (
+                    <div className="space-y-2">
+                      <div className="flex justify-between items-center">
+                        <label className="text-[8px] font-bold text-slate-500 uppercase tracking-widest">
+                          Global Size
+                        </label>
+                        <span className="text-[10px] font-mono text-cyan-400">
+                          {size}
+                        </span>
+                      </div>
+                      <input
+                        type="range"
+                        min="5"
+                        max="100"
+                        value={size}
+                        step={1}
+                        disabled={isLocked}
+                        onChange={(e) => onSizeChange(Number(e.target.value))}
+                        className="w-full accent-cyan-500 h-1.5 cursor-pointer disabled:opacity-30"
+                      />
+                    </div>
+                  )}
+
+                  <div className="h-[1px] bg-slate-800 w-full" />
+
+                  <div>
+                    <label className="text-[8px] font-bold text-slate-500 uppercase tracking-widest mb-2 block">
+                      Manual Array Input
+                    </label>
+                    <div className="flex gap-2">
+                      <input
+                        value={manualInput}
+                        onChange={(e) => setManualInput(e.target.value)}
+                        className="flex-1 min-w-0 bg-slate-950 border border-slate-700 rounded-lg px-2 py-2 text-[10px] font-mono text-cyan-400 focus:outline-none focus:border-cyan-500"
+                      />
+                      <button
+                        onClick={() => onManualUpdate(manualInput)}
+                        className="bg-cyan-600 text-slate-950 px-3 py-1 rounded-lg text-[8px] font-bold uppercase flex-shrink-0 transition-transform active:scale-95"
+                      >
+                        Set
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-2 pt-2">
                     <button
-                      onClick={() => onManualUpdate(manualInput)}
-                      className="bg-cyan-600 text-slate-950 px-3 py-1 rounded-lg text-[8px] font-bold uppercase flex-shrink-0"
+                      onClick={onShuffle}
+                      className="bg-slate-800 hover:bg-slate-700 py-3 rounded-lg text-[8px] font-bold uppercase"
                     >
-                      Set
+                      Shuffle
+                    </button>
+                    <button
+                      onClick={onGenerate}
+                      className="bg-slate-800 hover:bg-slate-700 py-3 rounded-lg text-[8px] font-bold uppercase"
+                    >
+                      Random
+                    </button>
+                    <button
+                      onClick={() => onGeneratePattern('nearly')}
+                      className="bg-slate-800 hover:bg-slate-700 py-3 rounded-lg text-[8px] font-bold uppercase"
+                    >
+                      Nearly
+                    </button>
+                    <button
+                      onClick={() => onGeneratePattern('reversed')}
+                      className="bg-slate-800 hover:bg-slate-700 py-3 rounded-lg text-[8px] font-bold uppercase"
+                    >
+                      Reversed
+                    </button>
+                    <button
+                      onClick={() => onGeneratePattern('few-unique')}
+                      className="bg-slate-800 hover:bg-slate-700 py-3 rounded-lg text-[8px] font-bold uppercase col-span-2 text-amber-400"
+                    >
+                      Few Unique
                     </button>
                   </div>
                 </div>
-                <div className="grid grid-cols-2 gap-2">
+              </div>
+            )}
+          </div>
+
+          <div className="relative" ref={menuRef}>
+            <button
+              onClick={() => {
+                closeAll();
+                setShowBenchmarkMenu(!showBenchmarkMenu);
+              }}
+              disabled={isLocked}
+              className={`px-3 h-10 rounded-lg border uppercase text-[9px] font-bold transition-all ${showBenchmarkMenu ? 'bg-indigo-900/40 border-indigo-400 text-indigo-400' : 'border-indigo-500 text-indigo-400 hover:bg-indigo-950'}`}
+            >
+              Compare
+            </button>
+            {showBenchmarkMenu && (
+              <div className="fixed sm:absolute top-1/3 sm:top-full left-1/2 sm:left-0 -translate-x-1/2 sm:translate-x-0 mt-0 sm:mt-2 w-[80vw] max-w-48 bg-slate-900 border border-slate-700 rounded-2xl shadow-2xl z-[100] overflow-hidden flex flex-col p-1 animate-in fade-in zoom-in-95 duration-200 backdrop-blur-xl bg-slate-900/98">
+                <div className="px-4 py-3 border-b border-slate-800 mb-1 sm:hidden flex justify-between items-center">
+                  <span className="text-[9px] font-bold uppercase text-indigo-400">
+                    Compare
+                  </span>
                   <button
-                    onClick={onShuffle}
-                    className="bg-slate-800 hover:bg-slate-700 py-3 rounded-lg text-[8px] font-bold uppercase"
+                    onClick={() => setShowBenchmarkMenu(false)}
+                    className="text-slate-500 p-1"
                   >
-                    Shuffle
-                  </button>
-                  <button
-                    onClick={onGenerate}
-                    className="bg-slate-800 hover:bg-slate-700 py-3 rounded-lg text-[8px] font-bold uppercase"
-                  >
-                    Random
-                  </button>
-                  <button
-                    onClick={() => onGeneratePattern('nearly')}
-                    className="bg-slate-800 hover:bg-slate-700 py-3 rounded-lg text-[8px] font-bold uppercase"
-                  >
-                    Nearly
-                  </button>
-                  <button
-                    onClick={() => onGeneratePattern('reversed')}
-                    className="bg-slate-800 hover:bg-slate-700 py-3 rounded-lg text-[8px] font-bold uppercase"
-                  >
-                    Reversed
-                  </button>
-                  <button
-                    onClick={() => onGeneratePattern('few-unique')}
-                    className="bg-slate-800 hover:bg-slate-700 py-3 rounded-lg text-[8px] font-bold uppercase col-span-2 text-amber-400"
-                  >
-                    Few Unique
+                    ✕
                   </button>
                 </div>
-              </div>
-            </div>
-          )}
-        </div>
-
-        {/* COMPARE */}
-        <div className="relative" ref={menuRef}>
-          <button
-            onClick={() => {
-              closeAll();
-              setShowBenchmarkMenu(!showBenchmarkMenu);
-            }}
-            disabled={isLocked}
-            className={`px-3 h-10 rounded-lg border uppercase text-[9px] font-bold transition-all ${showBenchmarkMenu ? 'bg-indigo-900/40 border-indigo-400 text-indigo-400' : 'border-indigo-500 text-indigo-400 hover:bg-indigo-950'}`}
-          >
-            Compare
-          </button>
-          {showBenchmarkMenu && (
-            <div className="fixed sm:absolute top-1/3 sm:top-full left-1/2 sm:left-0 -translate-x-1/2 sm:translate-x-0 mt-0 sm:mt-2 w-[80vw] max-w-48 bg-slate-900 border border-slate-700 rounded-2xl sm:rounded-xl shadow-2xl z-[100] overflow-hidden flex flex-col p-1 animate-in fade-in zoom-in-95 duration-200 backdrop-blur-xl bg-slate-900/98">
-              <div className="px-4 py-3 border-b border-slate-800 mb-1 sm:hidden flex justify-between items-center">
-                <span className="text-[9px] font-bold uppercase text-indigo-400">
-                  Compare
-                </span>
                 <button
-                  onClick={() => setShowBenchmarkMenu(false)}
-                  className="text-slate-500 p-1"
+                  onClick={() => {
+                    onQuickBenchmark();
+                    setShowBenchmarkMenu(false);
+                  }}
+                  className="w-full text-left px-4 py-4 sm:py-3 text-[9px] font-bold uppercase text-slate-300 hover:bg-indigo-600 hover:text-white rounded-lg transition-colors"
                 >
-                  ✕
+                  ⚡ Quick Comparison
+                </button>
+                <button
+                  onClick={() => {
+                    onVisualRun();
+                    setShowBenchmarkMenu(false);
+                  }}
+                  className="w-full text-left px-4 py-4 sm:py-3 text-[9px] font-bold uppercase text-slate-300 hover:bg-cyan-600 hover:text-white rounded-lg transition-colors"
+                >
+                  👁️ Visual Comparison
                 </button>
               </div>
-              <button
-                onClick={() => {
-                  onQuickBenchmark();
-                  setShowBenchmarkMenu(false);
-                }}
-                className="w-full text-left px-4 py-4 sm:py-3 text-[9px] font-bold uppercase text-slate-300 hover:bg-indigo-600 hover:text-white rounded-lg transition-colors"
-              >
-                ⚡ Quick Comparison
-              </button>
-              <button
-                onClick={() => {
-                  onVisualRun();
-                  setShowBenchmarkMenu(false);
-                }}
-                className="w-full text-left px-4 py-4 sm:py-3 text-[9px] font-bold uppercase text-slate-300 hover:bg-cyan-600 hover:text-white rounded-lg transition-colors"
-              >
-                👁️ Visual Comparison
-              </button>
-            </div>
-          )}
+            )}
+          </div>
         </div>
 
-        {!hasGenerator && (
-          <button
-            onClick={onStartStepByStep}
-            disabled={isBenchmarking}
-            className="px-3 h-10 rounded-lg border border-emerald-800 text-emerald-400 uppercase text-[9px] font-bold hover:bg-emerald-950"
-          >
-            Manual
-          </button>
-        )}
-
-        <div className="flex gap-2 flex-1 min-w-[120px]">
+        {/* Execution Block */}
+        <div className="flex gap-2 flex-1 min-w-[200px]">
           {!hasGenerator && !isBenchmarking ? (
-            <button
-              onClick={onExecute}
-              className="flex-1 px-4 h-10 rounded-lg bg-cyan-500 text-slate-950 font-bold uppercase text-[10px] shadow-lg shadow-cyan-900/20 transition-all"
-            >
-              Start
-            </button>
+            <>
+              <button
+                onClick={onStartStepByStep}
+                className="px-4 h-10 rounded-lg border border-emerald-800 text-emerald-400 uppercase text-[9px] font-bold hover:bg-emerald-950 transition-colors"
+              >
+                Manual
+              </button>
+              <button
+                onClick={onExecute}
+                className="flex-1 px-4 h-10 rounded-lg bg-cyan-500 text-slate-950 font-bold uppercase text-[10px] shadow-lg shadow-cyan-900/20 transition-all active:scale-95"
+              >
+                Start
+              </button>
+            </>
           ) : (
-            <button
-              onClick={onStop}
-              className="flex-1 px-4 h-10 rounded-lg bg-rose-600 text-white font-bold uppercase text-[10px] shadow-lg shadow-rose-900/20 transition-all"
-            >
-              Stop
-            </button>
+            <>
+              <button
+                onClick={onTogglePause}
+                className={`flex-1 px-4 h-10 rounded-lg font-bold uppercase text-[10px] transition-all ${isPaused ? 'bg-amber-500 text-slate-950 shadow-lg shadow-amber-900/20' : 'bg-slate-700 text-white border border-slate-600'}`}
+              >
+                {isPaused ? 'Resume' : 'Pause'}
+              </button>
+              <button
+                onClick={onStop}
+                className="px-4 h-10 rounded-lg bg-rose-600 text-white font-bold uppercase text-[10px] shadow-lg shadow-rose-900/20 transition-all active:scale-95"
+              >
+                Stop
+              </button>
+            </>
           )}
         </div>
       </div>

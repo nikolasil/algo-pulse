@@ -18,6 +18,10 @@ export default function SortingPage() {
   const [benchmarkResults, setBenchmarkResults] = useState<
     { name: string; time: number }[] | null
   >(null);
+
+  const [executionTime, setExecutionTime] = useState(0);
+  const timerIntervalRef = useRef<NodeJS.Timeout | null>(null);
+
   const hasInitialized = useRef(false);
   const abortBenchmarkRef = useRef(false);
 
@@ -46,6 +50,22 @@ export default function SortingPage() {
     generatorRef,
   } = useAlgorithm([]);
 
+  const startTimer = () => {
+    stopTimer();
+    setExecutionTime(0);
+    const startTime = Date.now();
+    timerIntervalRef.current = setInterval(() => {
+      setExecutionTime(Date.now() - startTime);
+    }, 10);
+  };
+
+  const stopTimer = () => {
+    if (timerIntervalRef.current) {
+      clearInterval(timerIntervalRef.current);
+      timerIntervalRef.current = null;
+    }
+  };
+
   useEffect(() => {
     if (!hasInitialized.current) {
       handleGenerate();
@@ -54,7 +74,7 @@ export default function SortingPage() {
   }, [setArray]);
 
   const handleGenerate = () => {
-    stopSimulation();
+    handleStopAll();
     const newArray = Array.from(
       { length: arraySize },
       () => Math.floor(Math.random() * 90) + 5,
@@ -65,7 +85,7 @@ export default function SortingPage() {
   const handleGeneratePattern = (
     pattern: 'nearly' | 'reversed' | 'few-unique',
   ) => {
-    stopSimulation();
+    handleStopAll();
     let newArr = Array.from(
       { length: arraySize },
       (_, i) => Math.floor((i / arraySize) * 90) + 5,
@@ -94,7 +114,7 @@ export default function SortingPage() {
     try {
       const parsed = JSON.parse(input);
       if (Array.isArray(parsed) && parsed.every((n) => typeof n === 'number')) {
-        stopSimulation();
+        handleStopAll();
         setArray(parsed);
         setArraySize(parsed.length);
       }
@@ -103,37 +123,53 @@ export default function SortingPage() {
     }
   };
 
-  const logResult = (name: string, startTime: number) => {
-    const duration = Math.round(performance.now() - startTime);
+  // Fixed: logResult now takes explicit duration to avoid state lag
+  const logResult = (name: string, duration: number) => {
     setHistory((prev) =>
       [
-        { id: Date.now(), algorithm: name, size: array.length, time: duration },
+        {
+          id: Date.now(),
+          algorithm: name,
+          size: array.length,
+          time: Math.round(duration),
+        },
         ...prev,
       ].slice(0, 10),
     );
-    return duration;
   };
 
   const handleStopAll = () => {
     abortBenchmarkRef.current = true;
+    stopTimer();
     stopSimulation();
     setIsBenchmarking(false);
   };
 
+  // Fixed: Calculate duration locally using a timestamp to ensure Telemetry Log is correct
   const handleExecute = async () => {
-    const startTime = performance.now();
     const { gen } = getAlgoData(algorithm);
     stopSimulation();
+
+    const startTime = performance.now(); // Local high-res timestamp
+    startTimer(); // Visual UI timer
+
     await runSimulation(gen([...array]), (val) => playTone(val));
-    logResult(algorithm, startTime);
+
+    stopTimer();
+    const endTime = performance.now();
+    const finalDuration = endTime - startTime;
+
+    setExecutionTime(finalDuration); // Update final UI state
+    logResult(algorithm, finalDuration); // Log the exact duration locally
   };
 
   const runFullBenchmark = async (isVisual: boolean) => {
     setIsBenchmarking(true);
     abortBenchmarkRef.current = false;
     stopSimulation();
+    setExecutionTime(0);
 
-    const algorithms: AlgorithmType[] = ['bubble', 'quick', 'merge'];
+    const algorithms: AlgorithmType[] = ['Bubble', 'Quick', 'Merge'];
     const results: { name: string; time: number }[] = [];
     const originalArray = [...array];
     const originalSpeed = speed;
@@ -141,7 +177,10 @@ export default function SortingPage() {
     for (const algo of algorithms) {
       if (abortBenchmarkRef.current) break;
       setAlgorithm(algo);
+
       const startTime = performance.now();
+      startTimer();
+
       const { gen } = getAlgoData(algo);
 
       if (isVisual) {
@@ -155,9 +194,13 @@ export default function SortingPage() {
         }
       }
 
+      stopTimer();
+      const endTime = performance.now();
+      const finalDuration = endTime - startTime;
+
       if (!abortBenchmarkRef.current) {
-        const time = logResult(algo, startTime);
-        results.push({ name: algo, time });
+        results.push({ name: algo, time: Math.round(finalDuration) });
+        logResult(algo, finalDuration);
         setArray(originalArray);
         await new Promise((r) => setTimeout(r, 500));
       }
@@ -171,6 +214,7 @@ export default function SortingPage() {
 
   const handleStartStepByStep = () => {
     stopSimulation();
+    setExecutionTime(0);
     const { gen } = getAlgoData(algorithm);
     generatorRef.current = gen([...array]);
     stepForward();
@@ -179,9 +223,13 @@ export default function SortingPage() {
   const handleTogglePause = () => {
     if (generatorRef.current) {
       togglePause();
-      if (isPaused) runSimulation(generatorRef.current, (val) => playTone(val));
+      if (isPaused) {
+        runSimulation(generatorRef.current, (val) => playTone(val));
+      }
     }
   };
+
+  const formatTime = (ms: number) => (ms / 1000).toFixed(2) + 's';
 
   return (
     <main className="flex min-h-screen bg-slate-950 text-slate-100 relative">
@@ -193,12 +241,12 @@ export default function SortingPage() {
               Select Algorithm
             </h2>
             <div className="flex gap-1">
-              {(['bubble', 'quick', 'merge'] as AlgorithmType[]).map((type) => (
+              {(['Bubble', 'Quick', 'Merge'] as AlgorithmType[]).map((type) => (
                 <button
                   key={type}
                   onClick={() => setAlgorithm(type)}
                   disabled={!!generatorRef.current || isBenchmarking}
-                  className={`px-2 py-0.5 rounded text-[8px] font-bold uppercase transition-all ${algorithm === type ? 'bg-cyan-600 shadow-md shadow-cyan-900/40' : 'bg-slate-800 text-slate-500'}`}
+                  className={`px-2 py-0.5 rounded text-[8px] font-bold transition-all ${algorithm === type ? 'bg-cyan-600 shadow-md shadow-cyan-900/40' : 'bg-slate-800 text-slate-500'}`}
                 >
                   {type}
                 </button>
@@ -234,7 +282,7 @@ export default function SortingPage() {
           onStepBack={stepBackward}
           onStepForward={stepForward}
           onShuffle={() => {
-            stopSimulation();
+            handleStopAll();
             setArray([...array].sort(() => Math.random() - 0.5));
           }}
           onGenerate={handleGenerate}
@@ -248,12 +296,17 @@ export default function SortingPage() {
           onStartStepByStep={handleStartStepByStep}
         />
 
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="grid grid-cols-2 lg:grid-cols-6 gap-4">
+          <StatCard
+            label="Algorithm"
+            value={algorithm}
+            highlight={true}
+          />
           <StatCard
             label="Phase"
             value={
               isBenchmarking
-                ? 'BENCHMARKING...'
+                ? 'BENCHMARK...'
                 : !!generatorRef.current
                   ? isPaused
                     ? 'PAUSED'
@@ -261,6 +314,11 @@ export default function SortingPage() {
                   : 'IDLE'
             }
             highlight={!!generatorRef.current && !isPaused}
+          />
+          <StatCard
+            label="Exec Time"
+            value={formatTime(executionTime)}
+            highlight={!!timerIntervalRef.current}
           />
           <StatCard
             label="Complexity"
@@ -282,7 +340,6 @@ export default function SortingPage() {
         </div>
       </section>
 
-      {/* Benchmark Modal */}
       {benchmarkResults && (
         <div className="fixed inset-x-0 bottom-0 z-[100] flex items-end justify-center bg-slate-950/40 backdrop-blur-sm p-4 animate-in fade-in duration-300">
           <div className="bg-slate-900 border border-slate-700 w-full max-w-lg rounded-t-3xl p-6 shadow-2xl animate-in slide-in-from-bottom-full duration-500 flex flex-col max-h-[70vh]">
@@ -308,7 +365,10 @@ export default function SortingPage() {
             </div>
 
             <button
-              onClick={() => setBenchmarkResults(null)}
+              onClick={() => {
+                setBenchmarkResults(null);
+                setExecutionTime(0);
+              }}
               className="w-full py-4 bg-cyan-600 hover:bg-cyan-500 text-slate-950 font-bold rounded-2xl transition-all uppercase text-xs tracking-widest flex-shrink-0 shadow-lg shadow-cyan-900/40"
             >
               Dismiss Report

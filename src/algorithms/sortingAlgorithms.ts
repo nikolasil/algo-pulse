@@ -1,22 +1,28 @@
 // --- BUBBLE SORT ---
-export const bubbleSortCode = `for (let i = 0; i < n; i++) {
-  for (let j = 0; j < n - i - 1; j++) {
-    if (array[j] > array[j + 1]) {
-      [arr[j], arr[j+1]] = [arr[j+1], arr[j]];
+export const bubbleSortCode = `function bubbleSort(arr) {
+  for (let i = 0; i < n; i++) {
+    for (let j = 0; j < n - i - 1; j++) {
+      if (arr[j] > arr[j + 1]) {
+        swap(arr, j, j + 1);
+      }
     }
   }
 }`;
 
 export async function* bubbleSort(array: number[]): AsyncGenerator<any> {
   const n = array.length;
+  // Line 1 is the function declaration
   for (let i = 0; i < n; i++) {
-    yield { line: 1 }; // for (let i = 0; i < n; i++)
+    yield { line: 2 }; // for (let i = 0; i < n; i++)
     for (let j = 0; j < n - i - 1; j++) {
-      yield { line: 2, comparing: [j, j + 1] }; // for (let j = 0; j < n - i - 1; j++)
+      yield { line: 3, comparing: [j, j + 1] }; // for (let j = 0; j < n - i - 1; j++)
       if (array[j] > array[j + 1]) {
-        yield { line: 3 }; // if (array[j] > array[j + 1])
-        [array[j], array[j + 1]] = [array[j + 1], array[j]];
-        yield { line: 4, array: [...array] }; // swap
+        yield { line: 4, comparing: [j, j + 1] }; // if (arr[j] > arr[j + 1])
+        [array[j], array[array[j + 1] ? j + 1 : j + 1]] = [
+          array[j + 1],
+          array[j],
+        ];
+        yield { line: 5, array: [...array], comparing: [j, j + 1] }; // swap
       }
     }
   }
@@ -38,8 +44,7 @@ export async function* quickSort(
   yield { line: 2 }; // if (start >= end)
   if (start >= end) return;
 
-  // Partition logic (mapped to line 3)
-  yield { line: 3 };
+  yield { line: 3 }; // partition logic
   let pivotValue = array[end];
   let pivotIndex = start;
   for (let i = start; i < end; i++) {
@@ -107,7 +112,14 @@ async function* merge(arr: number[], start: number, mid: number, end: number) {
     yield { array: [...arr] };
     k++;
   }
-  while (i < left.length) arr[k++] = left[i++];
-  while (j < right.length) arr[k++] = right[j++];
-  yield { array: [...arr] };
+  while (i < left.length) {
+    arr[k] = left[i++];
+    yield { array: [...arr], comparing: [k - 1] };
+    k++;
+  }
+  while (j < right.length) {
+    arr[k] = right[j++];
+    yield { array: [...arr], comparing: [k - 1] };
+    k++;
+  }
 }

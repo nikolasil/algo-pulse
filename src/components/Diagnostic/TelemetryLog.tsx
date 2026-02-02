@@ -16,7 +16,7 @@ export function TelemetryLog({ history }: { history: any[] }) {
             className="p-3 rounded-xl bg-slate-950/50 border border-slate-800 flex justify-between items-center text-xs"
           >
             <div>
-              <span className="font-bold text-cyan-500 uppercase">
+              <span className="font-bold text-cyan-500">
                 {item.algorithm}
               </span>
               <span className="ml-2 text-slate-500 font-mono text-[10px]">
