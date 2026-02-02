@@ -10,6 +10,16 @@ export const ALGO_CATEGORIES = [
     algos: ['Bubble Sort', 'Quick Sort', 'Merge Sort'],
   },
   {
+    id: 'searching',
+    title: 'Search Patterns',
+    description:
+      'Efficiently locate specific data points within structured sets.',
+    icon: '🔍',
+    path: '/searching',
+    status: 'ACTIVE',
+    algos: ['Linear Search', 'Binary Search', 'Jump Search'],
+  },
+  {
     id: 'pathfinding',
     title: 'Pathfinding & Tree Traversal',
     description:
@@ -27,15 +37,5 @@ export const ALGO_CATEGORIES = [
       'Pre-Order',
       'Post-Order',
     ],
-  },
-  {
-    id: 'searching',
-    title: 'Search Patterns',
-    description:
-      'Efficiently locate specific data points within structured sets.',
-    icon: '🔍',
-    path: '/searching',
-    status: 'ACTIVE',
-    algos: ['Linear Search', 'Binary Search', 'Jump Search'],
   },
 ];

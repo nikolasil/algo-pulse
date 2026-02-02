@@ -8,7 +8,10 @@ interface ControlPanelProps {
   isPaused: boolean;
   isBenchmarking: boolean;
   hasGenerator: boolean;
-  currentArray: number[];
+  currentArray?: number[];
+  isSearch?: boolean;
+  targetValue?: number;
+  onTargetChange?: (val: number) => void;
   onSpeedChange: (speed: number) => void;
   onSizeChange: (size: number) => void;
   onStepBack: () => void;
@@ -31,7 +34,10 @@ export const ControlPanel = ({
   isPaused,
   isBenchmarking,
   hasGenerator,
-  currentArray,
+  currentArray = [],
+  isSearch = false,
+  targetValue,
+  onTargetChange,
   onSpeedChange,
   onSizeChange,
   sizeShower,
@@ -50,14 +56,16 @@ export const ControlPanel = ({
 }: ControlPanelProps) => {
   const [showBenchmarkMenu, setShowBenchmarkMenu] = useState(false);
   const [showDataMenu, setShowDataMenu] = useState(false);
-  const [manualInput, setManualInput] = useState(`[${currentArray.join(',')}]`);
+  const [manualInput, setManualInput] = useState(
+    `[${currentArray?.join(',') || ''}]`,
+  );
 
   const menuRef = useRef<HTMLDivElement>(null);
   const dataRef = useRef<HTMLDivElement>(null);
   const isLocked = hasGenerator || isBenchmarking;
 
   useEffect(() => {
-    setManualInput(`[${currentArray.join(',')}]`);
+    setManualInput(`[${currentArray?.join(',') || ''}]`);
   }, [currentArray]);
 
   useEffect(() => {
@@ -86,7 +94,21 @@ export const ControlPanel = ({
       )}
 
       <div className="flex flex-wrap gap-4 items-center">
-        {/* Playback Controls */}
+        {isSearch && (
+          <div className="flex flex-col px-3 py-1 bg-slate-950 rounded-xl border border-slate-800 min-w-[100px]">
+            <label className="text-[8px] font-mono text-slate-500 uppercase tracking-tighter">
+              Target
+            </label>
+            <input
+              type="number"
+              value={targetValue}
+              disabled={isLocked && !isPaused}
+              onChange={(e) => onTargetChange?.(Number(e.target.value))}
+              className="bg-transparent text-sm font-bold text-cyan-400 focus:outline-none w-16"
+            />
+          </div>
+        )}
+
         <div className="flex gap-1">
           <button
             onClick={onStepBack}
@@ -106,8 +128,7 @@ export const ControlPanel = ({
 
         <div className="h-6 w-[1px] bg-slate-800 mx-1 hidden sm:block" />
 
-        {/* Speed Engine Slider - Integrated into main row */}
-        <div className="flex items-center gap-3 px-4 py-2 bg-slate-800/40 rounded-xl border border-slate-700/50 min-w-[180px] flex-1 lg:flex-none">
+        <div className="flex items-center gap-3 px-4 py-2 bg-slate-800/40 rounded-xl border border-slate-700/50 min-w-[160px] flex-1 lg:flex-none">
           <label className="text-[8px] font-bold text-slate-500 uppercase tracking-tighter">
             Speed
           </label>
@@ -126,11 +147,7 @@ export const ControlPanel = ({
           </span>
         </div>
 
-        <div className="h-6 w-[1px] bg-slate-800 mx-1 hidden lg:block" />
-
-        {/* Action Menus */}
         <div className="flex gap-2">
-          {/* Data Labs Pop-up */}
           <div className="relative" ref={dataRef}>
             <button
               onClick={() => {
@@ -140,7 +157,7 @@ export const ControlPanel = ({
               disabled={isLocked}
               className={`px-4 h-10 rounded-lg border uppercase text-[9px] font-bold transition-all flex items-center gap-2 ${showDataMenu ? 'bg-cyan-900/40 border-cyan-500 text-cyan-400' : 'bg-slate-800 border-slate-600 text-slate-200 hover:bg-slate-700'}`}
             >
-              📊 Data Labs
+              📊 Data
             </button>
             {showDataMenu && (
               <div className="fixed sm:absolute top-1/3 sm:top-full left-1/2 sm:left-0 -translate-x-1/2 sm:translate-x-0 mt-0 sm:mt-2 w-[90vw] max-w-72 bg-slate-900 border border-slate-700 rounded-2xl shadow-2xl z-[100] p-5 animate-in fade-in zoom-in-95 duration-200 backdrop-blur-xl bg-slate-900/98">
@@ -156,12 +173,11 @@ export const ControlPanel = ({
                   </button>
                 </div>
                 <div className="space-y-5">
-                  {/* Size is now inside Data Labs */}
                   {sizeShower && (
                     <div className="space-y-2">
                       <div className="flex justify-between items-center">
                         <label className="text-[8px] font-bold text-slate-500 uppercase tracking-widest">
-                          Global Size
+                          Size
                         </label>
                         <span className="text-[10px] font-mono text-cyan-400">
                           {size}
@@ -179,28 +195,25 @@ export const ControlPanel = ({
                       />
                     </div>
                   )}
-
                   <div className="h-[1px] bg-slate-800 w-full" />
-
                   <div>
                     <label className="text-[8px] font-bold text-slate-500 uppercase tracking-widest mb-2 block">
-                      Manual Array Input
+                      Manual Array
                     </label>
                     <div className="flex gap-2">
                       <input
                         value={manualInput}
                         onChange={(e) => setManualInput(e.target.value)}
-                        className="flex-1 min-w-0 bg-slate-950 border border-slate-700 rounded-lg px-2 py-2 text-[10px] font-mono text-cyan-400 focus:outline-none focus:border-cyan-500"
+                        className="flex-1 min-w-0 bg-slate-950 border border-slate-700 rounded-lg px-2 py-2 text-[10px] font-mono text-cyan-400 focus:outline-none"
                       />
                       <button
                         onClick={() => onManualUpdate(manualInput)}
-                        className="bg-cyan-600 text-slate-950 px-3 py-1 rounded-lg text-[8px] font-bold uppercase flex-shrink-0 transition-transform active:scale-95"
+                        className="bg-cyan-600 text-slate-950 px-3 py-1 rounded-lg text-[8px] font-bold uppercase"
                       >
                         Set
                       </button>
                     </div>
                   </div>
-
                   <div className="grid grid-cols-2 gap-2 pt-2">
                     <button
                       onClick={onShuffle}
@@ -214,24 +227,30 @@ export const ControlPanel = ({
                     >
                       Random
                     </button>
-                    <button
-                      onClick={() => onGeneratePattern('nearly')}
-                      className="bg-slate-800 hover:bg-slate-700 py-3 rounded-lg text-[8px] font-bold uppercase"
-                    >
-                      Nearly
-                    </button>
-                    <button
-                      onClick={() => onGeneratePattern('reversed')}
-                      className="bg-slate-800 hover:bg-slate-700 py-3 rounded-lg text-[8px] font-bold uppercase"
-                    >
-                      Reversed
-                    </button>
-                    <button
-                      onClick={() => onGeneratePattern('few-unique')}
-                      className="bg-slate-800 hover:bg-slate-700 py-3 rounded-lg text-[8px] font-bold uppercase col-span-2 text-amber-400"
-                    >
-                      Few Unique
-                    </button>
+
+                    {/* Sorting Specific Patterns */}
+                    {!isSearch && (
+                      <>
+                        <button
+                          onClick={() => onGeneratePattern('nearly')}
+                          className="bg-slate-800 hover:bg-slate-700 py-3 rounded-lg text-[8px] font-bold uppercase"
+                        >
+                          Nearly
+                        </button>
+                        <button
+                          onClick={() => onGeneratePattern('reversed')}
+                          className="bg-slate-800 hover:bg-slate-700 py-3 rounded-lg text-[8px] font-bold uppercase"
+                        >
+                          Reversed
+                        </button>
+                        <button
+                          onClick={() => onGeneratePattern('few-unique')}
+                          className="bg-slate-800 hover:bg-slate-700 py-3 rounded-lg text-[8px] font-bold uppercase col-span-2 text-amber-400"
+                        >
+                          Few Unique
+                        </button>
+                      </>
+                    )}
                   </div>
                 </div>
               </div>
@@ -251,17 +270,6 @@ export const ControlPanel = ({
             </button>
             {showBenchmarkMenu && (
               <div className="fixed sm:absolute top-1/3 sm:top-full left-1/2 sm:left-0 -translate-x-1/2 sm:translate-x-0 mt-0 sm:mt-2 w-[80vw] max-w-48 bg-slate-900 border border-slate-700 rounded-2xl shadow-2xl z-[100] overflow-hidden flex flex-col p-1 animate-in fade-in zoom-in-95 duration-200 backdrop-blur-xl bg-slate-900/98">
-                <div className="px-4 py-3 border-b border-slate-800 mb-1 sm:hidden flex justify-between items-center">
-                  <span className="text-[9px] font-bold uppercase text-indigo-400">
-                    Compare
-                  </span>
-                  <button
-                    onClick={() => setShowBenchmarkMenu(false)}
-                    className="text-slate-500 p-1"
-                  >
-                    ✕
-                  </button>
-                </div>
                 <button
                   onClick={() => {
                     onQuickBenchmark();
@@ -285,19 +293,18 @@ export const ControlPanel = ({
           </div>
         </div>
 
-        {/* Execution Block */}
-        <div className="flex gap-2 flex-1 min-w-[200px]">
+        <div className="flex gap-2 flex-1 min-w-[180px]">
           {!hasGenerator && !isBenchmarking ? (
             <>
               <button
                 onClick={onStartStepByStep}
-                className="px-4 h-10 rounded-lg border border-emerald-800 text-emerald-400 uppercase text-[9px] font-bold hover:bg-emerald-950 transition-colors"
+                className="px-4 h-10 rounded-lg border border-emerald-800 text-emerald-400 uppercase text-[9px] font-bold hover:bg-emerald-950"
               >
-                Manual
+                Step
               </button>
               <button
                 onClick={onExecute}
-                className="flex-1 px-4 h-10 rounded-lg bg-cyan-500 text-slate-950 font-bold uppercase text-[10px] shadow-lg shadow-cyan-900/20 transition-all active:scale-95"
+                className="flex-1 px-4 h-10 rounded-lg bg-cyan-500 text-slate-950 font-bold uppercase text-[10px] shadow-lg shadow-cyan-900/20 active:scale-95 transition-all"
               >
                 Start
               </button>
@@ -306,13 +313,13 @@ export const ControlPanel = ({
             <>
               <button
                 onClick={onTogglePause}
-                className={`flex-1 px-4 h-10 rounded-lg font-bold uppercase text-[10px] transition-all ${isPaused ? 'bg-amber-500 text-slate-950 shadow-lg shadow-amber-900/20' : 'bg-slate-700 text-white border border-slate-600'}`}
+                className={`flex-1 px-4 h-10 rounded-lg font-bold uppercase text-[10px] transition-all ${isPaused ? 'bg-amber-500 text-slate-950 shadow-lg shadow-amber-900/20' : 'bg-slate-700 text-white'}`}
               >
                 {isPaused ? 'Resume' : 'Pause'}
               </button>
               <button
                 onClick={onStop}
-                className="px-4 h-10 rounded-lg bg-rose-600 text-white font-bold uppercase text-[10px] shadow-lg shadow-rose-900/20 transition-all active:scale-95"
+                className="px-4 h-10 rounded-lg bg-rose-600 text-white font-bold uppercase text-[10px] shadow-lg shadow-rose-900/20 active:scale-95 transition-all"
               >
                 Stop
               </button>

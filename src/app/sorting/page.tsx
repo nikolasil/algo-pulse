@@ -251,7 +251,7 @@ export default function SortingPage() {
         <NavHeader title="Sort Pulse" subtitle="Diagnostic Engine" />
         <section>
           <div className="flex justify-between items-center mb-2">
-            <h2 className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
+            <h2 className="text-[10px] font-bold text-slate-400 tracking-widest">
               Select Algorithm
             </h2>
             <div className="flex gap-1">
