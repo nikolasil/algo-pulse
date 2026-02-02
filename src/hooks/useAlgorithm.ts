@@ -15,6 +15,7 @@ export const useAlgorithm = (initialArray: number[]) => {
   const historyRef = useRef<any[]>([]);
   const currentStepIdx = useRef(-1);
   const generatorRef = useRef<AsyncGenerator<any> | null>(null);
+  const isRunningRef = useRef(false);
 
   const updateArray = useCallback((newArray: number[]) => {
     arrayRef.current = [...newArray];
@@ -38,10 +39,13 @@ export const useAlgorithm = (initialArray: number[]) => {
   const stopSimulation = useCallback(() => {
     stopRef.current = true;
     pauseRef.current = false;
+    isRunningRef.current = false;
     setIsPaused(true);
     setComparing([]);
     setActiveLine(0);
     generatorRef.current = null;
+    historyRef.current = [];
+    currentStepIdx.current = -1;
   }, []);
 
   const togglePause = useCallback(() => {
@@ -54,12 +58,22 @@ export const useAlgorithm = (initialArray: number[]) => {
       algoGenerator: AsyncGenerator<any>,
       onStep?: (val: number) => void,
     ) => {
+      if (isRunningRef.current) {
+        pauseRef.current = false;
+        setIsPaused(false);
+        return;
+      }
+
       stopRef.current = false;
       pauseRef.current = false;
       setIsPaused(false);
-      generatorRef.current = algoGenerator;
-      historyRef.current = [];
-      currentStepIdx.current = -1;
+      isRunningRef.current = true;
+
+      if (generatorRef.current !== algoGenerator) {
+        generatorRef.current = algoGenerator;
+        historyRef.current = [];
+        currentStepIdx.current = -1;
+      }
 
       for await (const step of algoGenerator) {
         if (stopRef.current) break;
@@ -90,6 +104,7 @@ export const useAlgorithm = (initialArray: number[]) => {
         setIsPaused(true);
         pauseRef.current = true;
       }
+      isRunningRef.current = false;
     },
     [updateArray],
   );
@@ -129,25 +144,6 @@ export const useAlgorithm = (initialArray: number[]) => {
     }
   }, [updateArray]);
 
-  const shuffleData = useCallback(async () => {
-    stopRef.current = false;
-    pauseRef.current = false;
-    setIsPaused(false);
-    let shuffled = [...arrayRef.current];
-    for (let i = shuffled.length - 1; i > 0; i--) {
-      if (stopRef.current) break;
-      const j = Math.floor(Math.random() * (i + 1));
-      [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
-      if (i % 2 === 0) {
-        setArray([...shuffled]);
-        await sleep(10);
-      }
-    }
-    updateArray(shuffled);
-    setIsPaused(true);
-    pauseRef.current = true;
-  }, [updateArray]);
-
   return {
     array,
     setArray: updateArray,
@@ -161,7 +157,6 @@ export const useAlgorithm = (initialArray: number[]) => {
     stopSimulation,
     stepForward,
     stepBackward,
-    shuffleData,
-    generatorRef, // Exported generatorRef
+    generatorRef,
   };
 };
