@@ -36,7 +36,7 @@ export default function GridPage() {
   const abortBenchmarkRef = useRef(false);
   const timerIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
-  const { playTone } = useAudio();
+  // const { playTone } = useAudio();
 
   const {
     algorithm,
@@ -217,7 +217,7 @@ export default function GridPage() {
     mode: AlgorithmType = algorithm,
     autoRun = true,
   ) => {
-    playTone(0);
+    //playTone(0);
     if (activeGenRef.current && autoRun && isPaused) {
       startTimer();
       await runSimulation(activeGenRef.current);
@@ -249,12 +249,12 @@ export default function GridPage() {
           count = flat.filter((n: Node) => n.isVisited).length;
           pathLen = flat.filter((n: Node) => n.isPath).length;
           setNodesExplored(count);
-          playTone(count % 1000);
+          //playTone(count % 1000);
         }
         yield step;
       }
       stopTimer();
-      if (pathLen > 0) playTone(150, 0.2);
+      // if (pathLen > 0) playTone(150, 0.2);
 
       setHistory((prev: any) =>
         [
@@ -278,7 +278,7 @@ export default function GridPage() {
   };
 
   const runFullBenchmark = async (isVisual: boolean) => {
-    if (isVisual) playTone(0);
+    // if (isVisual) playTone(0);
     setIsBenchmarking(true);
     setShowBenchmarkModal(false);
     abortBenchmarkRef.current = false;
@@ -325,7 +325,7 @@ export default function GridPage() {
               pathLen = flat.filter((n: Node) => n.isPath).length;
               setNodesExplored(count);
               if (pathLen > 0) wasSuccessful = true;
-              playTone(count % 1000);
+              //playTone(count % 1000);
             }
             await new Promise((r) => setTimeout(r, 1));
           }
@@ -454,7 +454,7 @@ export default function GridPage() {
           onStop={handleStopAll}
           onTogglePause={() => {
             if (isPaused && activeGenRef.current) {
-              playTone(0);
+              //playTone(0);
               startTimer();
               runSimulation(activeGenRef.current);
             } else {
