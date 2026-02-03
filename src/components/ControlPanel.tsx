@@ -3,6 +3,7 @@ import { useState, useRef, useEffect } from 'react';
 
 interface ControlPanelProps {
   size: number;
+  maxSize?: number;
   sizeShower: boolean;
   speed: number;
   isPaused: boolean;
@@ -38,6 +39,7 @@ interface ControlPanelProps {
 
 export const ControlPanel = ({
   size,
+  maxSize,
   speed,
   isPaused,
   isBenchmarking,
@@ -73,14 +75,16 @@ export const ControlPanel = ({
   const [manualInput, setManualInput] = useState(
     `[${currentArray?.join(',') || ''}]`,
   );
+  const [prevArray, setPrevArray] = useState(currentArray);
+
+  if (currentArray !== prevArray) {
+    setPrevArray(currentArray);
+    setManualInput(`[${currentArray?.join(',') || ''}]`);
+  }
 
   const menuRef = useRef<HTMLDivElement>(null);
   const dataRef = useRef<HTMLDivElement>(null);
   const isLocked = hasGenerator || isBenchmarking;
-
-  useEffect(() => {
-    setManualInput(`[${currentArray?.join(',') || ''}]`);
-  }, [currentArray]);
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -102,7 +106,7 @@ export const ControlPanel = ({
     <div className="flex flex-col gap-4 bg-slate-900/50 p-5 rounded-2xl border border-slate-800 w-full relative z-10">
       {(showBenchmarkMenu || showDataMenu) && (
         <div
-          className="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-[95] sm:hidden"
+          className="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-95 sm:hidden"
           onClick={closeAll}
         />
       )}
@@ -110,7 +114,7 @@ export const ControlPanel = ({
       <div className="flex flex-wrap gap-4 items-center">
         {/* TARGET INPUT (Shared by Search and Tree Mode) */}
         {(isSearch || viewMode === 'Tree') && (
-          <div className="flex flex-col px-3 py-1 bg-slate-950 rounded-xl border border-slate-800 min-w-[100px]">
+          <div className="flex flex-col px-3 py-1 bg-slate-950 rounded-xl border border-slate-800 min-w-25">
             <label className="text-[8px] font-mono text-slate-500 uppercase tracking-tighter">
               Search Value
             </label>
@@ -159,9 +163,9 @@ export const ControlPanel = ({
           </button>
         </div>
 
-        <div className="h-6 w-[1px] bg-slate-800 mx-1 hidden sm:block" />
+        <div className="h-6 w-px bg-slate-800 mx-1 hidden sm:block" />
 
-        <div className="flex items-center gap-3 px-4 py-2 bg-slate-800/40 rounded-xl border border-slate-700/50 min-w-[160px] flex-1 lg:flex-none">
+        <div className="flex items-center gap-3 px-4 py-2 bg-slate-800/40 rounded-xl border border-slate-700/50 min-w-40 flex-1 lg:flex-none">
           <label className="text-[8px] font-bold text-slate-500 uppercase tracking-tighter">
             Speed
           </label>
@@ -198,7 +202,7 @@ export const ControlPanel = ({
                   : 'Array Ops'}
             </button>
             {showDataMenu && (
-              <div className="fixed sm:absolute top-1/3 sm:top-full left-1/2 sm:left-0 -translate-x-1/2 sm:translate-x-0 mt-0 sm:mt-2 w-[90vw] max-w-72 bg-slate-900 border border-slate-700 rounded-2xl shadow-2xl z-[100] p-5 backdrop-blur-xl bg-slate-900/98 animate-in fade-in zoom-in-95 duration-200">
+              <div className="fixed sm:absolute top-1/3 sm:top-full left-1/2 sm:left-0 -translate-x-1/2 sm:translate-x-0 mt-0 sm:mt-2 w-[90vw] max-w-72 bg-slate-900 border border-slate-700 rounded-2xl shadow-2xl z-100 p-5 backdrop-blur-xl animate-in fade-in zoom-in-95 duration-200">
                 <div className="flex justify-between items-center mb-4 sm:hidden">
                   <span className="text-[10px] font-bold uppercase text-cyan-400">
                     Configuration
@@ -225,7 +229,7 @@ export const ControlPanel = ({
                       <input
                         type="range"
                         min="5"
-                        max="50"
+                        max={maxSize || 50}
                         value={size}
                         step={1}
                         disabled={isLocked}
@@ -274,7 +278,7 @@ export const ControlPanel = ({
                   {/* STANDARD DATA OPS (Hidden if in Grid mode) */}
                   {viewMode !== 'Grid' && (
                     <>
-                      <div className="h-[1px] bg-slate-800 w-full" />
+                      <div className="h-px bg-slate-800 w-full" />
                       <div>
                         <label className="text-[8px] font-bold text-slate-500 uppercase tracking-widest mb-2 block">
                           Manual Array
@@ -350,7 +354,7 @@ export const ControlPanel = ({
               Compare
             </button>
             {showBenchmarkMenu && (
-              <div className="fixed sm:absolute top-1/3 sm:top-full left-1/2 sm:left-0 -translate-x-1/2 sm:translate-x-0 mt-0 sm:mt-2 w-[80vw] max-w-48 bg-slate-900 border border-slate-700 rounded-2xl shadow-2xl z-[100] overflow-hidden flex flex-col p-1 backdrop-blur-xl bg-slate-900/98 animate-in fade-in zoom-in-95 duration-200">
+              <div className="fixed sm:absolute top-1/3 sm:top-full left-1/2 sm:left-0 -translate-x-1/2 sm:translate-x-0 mt-0 sm:mt-2 w-[80vw] max-w-48 bg-slate-900 border border-slate-700 rounded-2xl shadow-2xl z-100 overflow-hidden flex flex-col p-1 backdrop-blur-xl animate-in fade-in zoom-in-95 duration-200">
                 <button
                   onClick={() => {
                     onQuickBenchmark();
@@ -374,7 +378,7 @@ export const ControlPanel = ({
           </div>
         </div>
 
-        <div className="flex gap-2 flex-1 min-w-[180px]">
+        <div className="flex gap-2 flex-1 min-w-45">
           {!hasGenerator && !isBenchmarking ? (
             <>
               <button

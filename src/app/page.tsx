@@ -1,5 +1,8 @@
 'use client';
 
+import { pathfindingAlgorithms } from '@/hooks/algorithms/pathfindingAlgorithms';
+import { searchAlgorithms } from '@/hooks/algorithms/searchingAlgorithms';
+import { sortingAlgorithms } from '@/hooks/algorithms/sortingAlgorithms';
 import Link from 'next/link';
 
 // --- Types ---
@@ -23,7 +26,7 @@ const ALGO_MODULES: Category[] = [
     icon: '📊',
     path: '/algorithms/sorting',
     status: 'ACTIVE',
-    algos: ['Bubble Sort', 'Quick Sort', 'Merge Sort'],
+    algos: sortingAlgorithms,
   },
   {
     id: 'searching',
@@ -33,7 +36,7 @@ const ALGO_MODULES: Category[] = [
     icon: '🔍',
     path: '/algorithms/searching',
     status: 'ACTIVE',
-    algos: ['Linear Search', 'Binary Search', 'Jump Search'],
+    algos: searchAlgorithms,
   },
   {
     id: 'pathfinding',
@@ -43,7 +46,7 @@ const ALGO_MODULES: Category[] = [
     icon: '🗺️',
     path: '/algorithms/pathfinding',
     status: 'ACTIVE',
-    algos: ["Dijkstra's", 'A* Search', 'Greedy Best-First'],
+    algos: pathfindingAlgorithms,
   },
 ];
 

@@ -2,48 +2,47 @@
 import { useState, useCallback } from 'react';
 import {
   bubbleSort,
-  bubbleSortCode,
+  bubbleSortTraceCode,
   quickSort,
-  quickSortCode,
+  quickSortTraceCode,
   mergeSort,
-  mergeSortCode,
-} from '@/algorithms/sortingAlgorithms';
+  mergeSortTraceCode,
+  selectionSort,
+  selectionSortTraceCode,
+  insertionSort,
+  insertionSortTraceCode,
+  heapSort,
+  heapSortTraceCode,
+  shellSort,
+  shellSortTraceCode,
+  cocktailSort,
+  cocktailSortTraceCode,
+  gnomeSort,
+  gnomeSortTraceCode,
+  combSort,
+  combSortTraceCode,
+  countingSort,
+  countingSortTraceCode,
+  SortingAlgorithmType,
+  sortingComplexities,
+  SortStep,
+  SortInput,
+} from '@/hooks/algorithms/sortingAlgorithms';
 import { RawBenchmarkData } from '@/components/BenchmarkModal';
-
-export type AlgorithmType = 'Bubble' | 'Quick' | 'Merge';
+import { LogItem } from '@/components/TelemetryLog';
+import { Complexity } from '@/hooks/algorithms/general';
 
 export function useSortingLogic() {
-  const [algorithm, setAlgorithm] = useState<AlgorithmType>('Bubble');
+  const [algorithm, setAlgorithm] = useState<SortingAlgorithmType>('Bubble');
   const [isBenchmarking, setIsBenchmarking] = useState(false);
   const [showQuickReport, setShowQuickReport] = useState(false);
-  const [quickResults, setQuickResults] = useState<any[]>([]);
-  const [history, setHistory] = useState<
-    { id: number; algorithm: string; size: number; time: number }[]
-  >([]);
+  const [history, setHistory] = useState<LogItem[]>([]);
   const [benchmarkData, setBenchmarkData] = useState<RawBenchmarkData[]>([]);
 
-  const getAlgoData = useCallback((type: AlgorithmType) => {
-    switch (type) {
-      case 'Quick':
-        return {
-          gen: quickSort,
-          code: quickSortCode,
-          complexity: 'O(n log n)',
-        };
-      case 'Merge':
-        return {
-          gen: mergeSort,
-          code: mergeSortCode,
-          complexity: 'O(n log n)',
-        };
-      default:
-        return {
-          gen: bubbleSort,
-          code: bubbleSortCode,
-          complexity: 'O(n²)',
-        };
-    }
-  }, []);
+  const getAlgoData: (type: SortingAlgorithmType) => SortingAlgoData =
+    useCallback((type: SortingAlgorithmType) => {
+      return createAlgoData(type);
+    }, []);
 
   return {
     algorithm,
@@ -56,8 +55,90 @@ export function useSortingLogic() {
     setHistory,
     benchmarkData,
     setBenchmarkData,
-    quickResults,
-    setQuickResults,
     getAlgoData,
   };
+}
+
+export type SortingAlgoData = {
+  gen: (input: SortInput) => AsyncGenerator<SortStep>;
+  algorithmTraceCode: string;
+  complexity: Complexity;
+};
+
+function createAlgoData(type: string): SortingAlgoData {
+  switch (type) {
+    case 'Quick':
+      return {
+        gen: quickSort,
+        algorithmTraceCode: quickSortTraceCode,
+        complexity: sortingComplexities.Quick,
+      };
+    case 'Merge':
+      return {
+        gen: mergeSort,
+        algorithmTraceCode: mergeSortTraceCode,
+        complexity: sortingComplexities.Merge,
+      };
+    case 'Selection':
+      return {
+        gen: selectionSort,
+        algorithmTraceCode: selectionSortTraceCode,
+        complexity: sortingComplexities.Selection,
+      };
+    case 'Insertion': {
+      return {
+        gen: insertionSort,
+        algorithmTraceCode: insertionSortTraceCode,
+        complexity: sortingComplexities.Insertion,
+      };
+    }
+    case 'Heap': {
+      return {
+        gen: heapSort,
+        algorithmTraceCode: heapSortTraceCode,
+        complexity: sortingComplexities.Heap,
+      };
+    }
+    case 'Shell': {
+      return {
+        gen: shellSort,
+        algorithmTraceCode: shellSortTraceCode,
+        complexity: sortingComplexities.Shell,
+      };
+    }
+    case 'Cocktail': {
+      return {
+        gen: cocktailSort,
+        algorithmTraceCode: cocktailSortTraceCode,
+        complexity: sortingComplexities.Cocktail,
+      };
+    }
+    case 'Gnome': {
+      return {
+        gen: gnomeSort,
+        algorithmTraceCode: gnomeSortTraceCode,
+        complexity: sortingComplexities.Gnome,
+      };
+    }
+    case 'Comb': {
+      return {
+        gen: combSort,
+        algorithmTraceCode: combSortTraceCode,
+        complexity: sortingComplexities.Comb,
+      };
+    }
+    case 'Counting': {
+      return {
+        gen: countingSort,
+        algorithmTraceCode: countingSortTraceCode,
+        complexity: sortingComplexities.Counting,
+      };
+    }
+    default:
+      return {
+        gen: bubbleSort,
+        algorithmTraceCode: bubbleSortTraceCode,
+        complexity: sortingComplexities.Bubble,
+      };
+  }
 }

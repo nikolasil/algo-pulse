@@ -10,7 +10,7 @@ export interface TreeNode {
  * In-Order Traversal (Left, Root, Right)
  * Yields nodes in ascending order.
  */
-export async function* inOrder(node: TreeNode | null): AsyncGenerator<any> {
+export async function* inOrder(node: TreeNode | null): AsyncGenerator<unknown> {
   if (!node) return;
 
   yield* inOrder(node.left);
@@ -25,7 +25,9 @@ export async function* inOrder(node: TreeNode | null): AsyncGenerator<any> {
  * Pre-Order Traversal (Root, Left, Right)
  * Great for cloning trees.
  */
-export async function* preOrder(node: TreeNode | null): AsyncGenerator<any> {
+export async function* preOrder(
+  node: TreeNode | null,
+): AsyncGenerator<unknown> {
   if (!node) return;
 
   yield { activeNode: node, type: 'VISIT', line: 2 };
@@ -37,7 +39,9 @@ export async function* preOrder(node: TreeNode | null): AsyncGenerator<any> {
  * Post-Order Traversal (Left, Right, Root)
  * Used for deleting trees or calculating folder sizes.
  */
-export async function* postOrder(node: TreeNode | null): AsyncGenerator<any> {
+export async function* postOrder(
+  node: TreeNode | null,
+): AsyncGenerator<unknown> {
   if (!node) return;
 
   yield* postOrder(node.left);

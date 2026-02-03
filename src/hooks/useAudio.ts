@@ -7,9 +7,7 @@ export const useAudio = () => {
   // Helper to initialize or resume the context
   const initContext = async () => {
     if (!audioCtx.current) {
-      audioCtx.current = new (
-        window.AudioContext || (window as any).webkitAudioContext
-      )();
+      audioCtx.current = new window.AudioContext();
     }
 
     // Crucial: Browsers suspend audio contexts until a user interacts with the page

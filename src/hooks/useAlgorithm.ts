@@ -1,25 +1,43 @@
 'use client';
 import { useState, useRef, useCallback } from 'react';
+import { AllStepTypes, VisualState } from './algorithms/general';
+import { SortStep } from './algorithms/sortingAlgorithms';
+import {
+  PathfindingStep,
+  PathfindingNode,
+} from './algorithms/pathfindingAlgorithms';
+import { SearchStep } from './algorithms/searchingAlgorithms';
 
-export const useAlgorithm = (initialArray: number[]) => {
+export const useAlgorithm = (
+  initialArray: number[],
+  initialGrid: PathfindingNode[][] = [],
+) => {
   const [array, setArray] = useState<number[]>(initialArray);
+  const [grid, setGrid] = useState<PathfindingNode[][]>(initialGrid);
   const [isPaused, setIsPaused] = useState(true);
   const [speed, setSpeed] = useState(50);
-  const [comparing, setComparing] = useState<number[]>([]);
+  const [comparing, setComparing] = useState<number[] | undefined>([]);
   const [activeLine, setActiveLine] = useState<number>(0);
 
   const arrayRef = useRef(initialArray);
+  const gridRef = useRef(initialGrid);
   const speedRef = useRef(speed);
   const stopRef = useRef(false);
   const pauseRef = useRef(true);
-  const historyRef = useRef<any[]>([]);
+
+  const historyRef = useRef<VisualState[]>([]);
   const currentStepIdx = useRef(-1);
-  const generatorRef = useRef<AsyncGenerator<any> | null>(null);
+  const generatorRef = useRef<AsyncGenerator<AllStepTypes> | null>(null);
   const isRunningRef = useRef(false);
 
   const updateArray = useCallback((newArray: number[]) => {
     arrayRef.current = [...newArray];
     setArray([...newArray]);
+  }, []);
+
+  const updateGrid = useCallback((newGrid: PathfindingNode[][]) => {
+    gridRef.current = newGrid;
+    setGrid(newGrid);
   }, []);
 
   const handleSetSpeed = useCallback((val: number) => {
@@ -39,7 +57,7 @@ export const useAlgorithm = (initialArray: number[]) => {
     currentStepIdx.current = -1;
   }, []);
 
-  // --- Data Generation Logic ---
+  // --- Data Generation ---
   const generateRandom = useCallback(
     (size: number) => {
       stopSimulation();
@@ -62,7 +80,6 @@ export const useAlgorithm = (initialArray: number[]) => {
         { length: size },
         (_, i) => Math.floor((i / size) * 90) + 5,
       );
-
       if (pattern === 'nearly') {
         for (let i = 0; i < newArr.length; i++) {
           if (Math.random() > 0.8) {
@@ -70,11 +87,9 @@ export const useAlgorithm = (initialArray: number[]) => {
             [newArr[i], newArr[j]] = [newArr[j], newArr[i]];
           }
         }
-      } else if (pattern === 'reversed') {
-        newArr.reverse();
-      } else if (pattern === 'sorted') {
-        newArr.sort((a, b) => a - b);
-      } else if (pattern === 'few-unique') {
+      } else if (pattern === 'reversed') newArr.reverse();
+      else if (pattern === 'sorted') newArr.sort((a, b) => a - b);
+      else if (pattern === 'few-unique') {
         const values = [20, 40, 60, 80];
         newArr = Array.from(
           { length: size },
@@ -92,23 +107,24 @@ export const useAlgorithm = (initialArray: number[]) => {
     updateArray(shuffled);
   }, [updateArray, stopSimulation]);
 
-  // --- Execution Logic ---
-  const sleep = (ms?: number) =>
-    new Promise((resolve) => setTimeout(resolve, ms ?? speedRef.current));
-
-  const checkPause = async () => {
+  // --- Helpers ---
+  const sleep = useCallback(
+    (ms?: number) =>
+      new Promise((resolve) => setTimeout(resolve, ms ?? speedRef.current)),
+    [],
+  );
+  const checkPause = useCallback(async () => {
     while (pauseRef.current && !stopRef.current) {
       await new Promise((resolve) => setTimeout(resolve, 100));
     }
-  };
-
+  }, []);
   const togglePause = useCallback(() => {
     pauseRef.current = !pauseRef.current;
     setIsPaused(pauseRef.current);
   }, []);
 
   const startStepByStep = useCallback(
-    (algoGenerator: AsyncGenerator<any>) => {
+    (algoGenerator: AsyncGenerator<AllStepTypes>) => {
       stopSimulation();
       stopRef.current = false;
       pauseRef.current = true;
@@ -121,8 +137,8 @@ export const useAlgorithm = (initialArray: number[]) => {
   );
 
   const runSimulation = useCallback(
-    async (
-      algoGenerator: AsyncGenerator<any>,
+    async <T extends AllStepTypes>(
+      algoGenerator: AsyncGenerator<T>,
       onStep?: (val: number) => void,
     ) => {
       if (isRunningRef.current && generatorRef.current === algoGenerator) {
@@ -147,70 +163,122 @@ export const useAlgorithm = (initialArray: number[]) => {
         await checkPause();
         if (stopRef.current) break;
 
-        const state = {
-          array: step.array ? [...step.array] : [...arrayRef.current],
-          comparing: step.comparing ? [...step.comparing] : [],
+        const isPathfinding = 'grid' in step;
+        const sSort = step as SortStep;
+        const sSearch = step as SearchStep;
+        const sPath = step as PathfindingStep;
+
+        // Deep copy grid if it exists, otherwise shallow copy array
+        const state: VisualState = {
           line: step.line ?? 0,
+          array: sSort.array
+            ? [...sSort.array]
+            : arrayRef.current.length > 0
+              ? [...arrayRef.current]
+              : undefined,
+          grid: sPath.grid
+            ? JSON.parse(JSON.stringify(sPath.grid))
+            : gridRef.current.length > 0
+              ? JSON.parse(JSON.stringify(gridRef.current))
+              : undefined,
+          comparing: sSort.comparing || sSearch.comparing || [],
+          found: sSearch.found,
         };
+
         historyRef.current.push(state);
         currentStepIdx.current++;
 
         if (step.line !== undefined) setActiveLine(step.line);
-        if (step.array) updateArray(step.array);
-        if (step.comparing) {
-          setComparing(step.comparing);
-          if (onStep && step.comparing.length > 0)
-            onStep(arrayRef.current[step.comparing[0]]);
+
+        if (isPathfinding && sPath.grid) {
+          updateGrid(sPath.grid);
+        } else if (sSort.array) {
+          updateArray(sSort.array);
+        }
+
+        if (sSort.comparing) {
+          setComparing(sSort.comparing);
+          if (
+            onStep &&
+            sSort.comparing.length > 0 &&
+            arrayRef.current.length > 0
+          ) {
+            const val = arrayRef.current[sSort.comparing[0]];
+            if (val !== undefined) onStep(val);
+          }
         }
         await sleep();
       }
-
       if (!stopRef.current) stopSimulation();
       isRunningRef.current = false;
     },
-    [updateArray, stopSimulation],
+    [updateArray, updateGrid, stopSimulation, sleep, checkPause],
   );
 
   const stepForward = useCallback(async () => {
     if (!generatorRef.current) return;
+
     if (currentStepIdx.current < historyRef.current.length - 1) {
       currentStepIdx.current++;
       const state = historyRef.current[currentStepIdx.current];
-      updateArray(state.array);
-      setComparing(state.comparing);
-      setActiveLine(state.line);
+      if (state.array) updateArray(state.array);
+      if (state.grid) updateGrid(state.grid);
+      setComparing(state.comparing || []);
+      setActiveLine(state.line ?? 0);
       return;
     }
+
     const { value, done } = await generatorRef.current.next();
     if (!done && value) {
-      const state = {
-        array: value.array ? [...value.array] : [...arrayRef.current],
-        comparing: value.comparing ? [...value.comparing] : [],
+      // Cast to specific types to access properties safely
+      const valSort = value as SortStep;
+      const valSearch = value as SearchStep;
+      const valPath = value as PathfindingStep;
+
+      const state: VisualState = {
         line: value.line ?? 0,
+        array: valSort.array
+          ? [...valSort.array]
+          : arrayRef.current.length > 0
+            ? [...arrayRef.current]
+            : undefined,
+        grid: valPath.grid
+          ? JSON.parse(JSON.stringify(valPath.grid))
+          : gridRef.current.length > 0
+            ? JSON.parse(JSON.stringify(gridRef.current))
+            : undefined,
+        // Fix: Check for comparing on both Sort and Search steps
+        comparing: valSort.comparing || valSearch.comparing || [],
       };
+
       historyRef.current.push(state);
       currentStepIdx.current++;
-      updateArray(state.array);
+
+      if (state.array) updateArray(state.array);
+      if (state.grid) updateGrid(state.grid);
       setComparing(state.comparing);
       setActiveLine(state.line);
     } else if (done) {
       stopSimulation();
     }
-  }, [updateArray, stopSimulation]);
+  }, [updateArray, updateGrid, stopSimulation]);
 
   const stepBackward = useCallback(() => {
     if (currentStepIdx.current > 0) {
       currentStepIdx.current--;
       const state = historyRef.current[currentStepIdx.current];
-      updateArray(state.array);
-      setComparing(state.comparing);
-      setActiveLine(state.line);
+      if (state.array) updateArray(state.array);
+      if (state.grid) updateGrid(state.grid);
+      setComparing(state.comparing || []);
+      setActiveLine(state.line ?? 0);
     }
-  }, [updateArray]);
+  }, [updateArray, updateGrid]);
 
   return {
     array,
+    grid,
     setArray: updateArray,
+    setGrid: updateGrid,
     comparing,
     activeLine,
     isPaused,

@@ -1,4 +1,75 @@
-export type Node = {
+import { Complexity } from './general';
+
+export const pathfindingAlgorithms: PathfindingAlgorithmType[] = [
+  'Dijkstra',
+  'A*',
+  'Greedy',
+  'BFS',
+  'DFS',
+];
+
+export const pathfindingAlgorithmsWithHeuristic: PathfindingAlgorithmType[] = [
+  'A*',
+  'Greedy',
+];
+
+export type PathfindingAlgorithmType =
+  | 'Dijkstra'
+  | 'A*'
+  | 'Greedy'
+  | 'BFS'
+  | 'DFS';
+
+export const PathfindingComplexities: Record<
+  PathfindingAlgorithmType,
+  Complexity
+> = {
+  Dijkstra: {
+    best: 'O(E+V\\log V)',
+    average: 'O(E+V\\log V)',
+    worst: 'O(E+V\\log V)',
+    space: 'O(V)',
+  },
+  'A*': {
+    best: 'O(E)',
+    average: 'O(E)',
+    worst: 'O(b^d)',
+    space: 'O(V)',
+  },
+  Greedy: {
+    best: 'O(E)',
+    average: 'O(b^d)',
+    worst: 'O(b^d)',
+    space: 'O(V)',
+  },
+  BFS: {
+    best: 'O(V+E)',
+    average: 'O(V+E)',
+    worst: 'O(V+E)',
+    space: 'O(V)',
+  },
+  DFS: {
+    best: 'O(V+E)',
+    average: 'O(V+E)',
+    worst: 'O(V+E)',
+    space: 'O(V)',
+  },
+};
+
+// 1. Define the possible extra settings
+export interface PathfindingOptions {
+  heuristic?: PathfindingHeuristicType;
+}
+
+// 2. The Universal Input
+export interface PathfindingInput<T = PathfindingOptions> {
+  grid: PathfindingNode[][];
+  startNode: PathfindingNode;
+  endNode: PathfindingNode;
+  options: T;
+}
+
+export type PathfindingNode = {
   row: number;
   col: number;
   isWall: boolean;
@@ -8,21 +79,45 @@ export type Node = {
   distance: number;
   heuristic: number;
   totalCost: number;
-  previousNode: Node | null;
+  previousNode: PathfindingNode | null;
 };
 
-export type HeuristicType = 'Manhattan' | 'Euclidean';
+export const pathfindingHeuristics: PathfindingHeuristicType[] = [
+  'Manhattan',
+  'Euclidean',
+];
+export type PathfindingHeuristicType = 'Manhattan' | 'Euclidean';
 
-const getDistance = (node: Node, endNode: Node, type: HeuristicType) => {
+export interface PathfindingStep {
+  line: number;
+  grid?: {
+    row: number;
+    col: number;
+    isWall: boolean;
+    isMud: boolean;
+    isVisited: boolean;
+    isPath: boolean;
+    distance: number;
+    heuristic: number;
+    totalCost: number;
+    previousNode: PathfindingNode | null;
+  }[][];
+}
+
+const getDistance = (
+  node: PathfindingNode,
+  endNode: PathfindingNode,
+  type: PathfindingHeuristicType,
+) => {
   const d1 = Math.abs(node.row - endNode.row);
   const d2 = Math.abs(node.col - endNode.col);
   return type === 'Manhattan' ? d1 + d2 : Math.sqrt(d1 * d1 + d2 * d2);
 };
 
-const cloneGrid = (grid: Node[][]) =>
+const cloneGrid = (grid: PathfindingNode[][]) =>
   grid.map((row) => row.map((node) => ({ ...node })));
 
-function getNeighbors(node: Node, grid: Node[][]) {
+function getNeighbors(node: PathfindingNode, grid: PathfindingNode[][]) {
   const neighbors = [];
   const { row, col } = node;
   if (row > 0) neighbors.push(grid[row - 1][col]);
@@ -32,7 +127,10 @@ function getNeighbors(node: Node, grid: Node[][]) {
   return neighbors.filter((n) => !n.isWall);
 }
 
-export const createNode = (row: number, col: number): Node => ({
+export const createPathfindingNode = (
+  row: number,
+  col: number,
+): PathfindingNode => ({
   row,
   col,
   isWall: false,
@@ -45,8 +143,12 @@ export const createNode = (row: number, col: number): Node => ({
   previousNode: null,
 });
 
-async function* reconstructPath(grid: Node[][], endNode: Node, line: number) {
-  let current: Node | null = endNode;
+async function* reconstructPath(
+  grid: PathfindingNode[][],
+  endNode: PathfindingNode,
+  line: number,
+) {
+  let current: PathfindingNode | null = endNode;
   while (current !== null) {
     current.isPath = true;
     current = current.previousNode;
@@ -57,10 +159,9 @@ async function* reconstructPath(grid: Node[][], endNode: Node, line: number) {
 
 // --- DIJKSTRA ---
 export async function* dijkstra(
-  grid: Node[][],
-  startNode: Node,
-  endNode: Node,
-) {
+  input: PathfindingInput,
+): AsyncGenerator<PathfindingStep> {
+  const { grid, startNode, endNode } = input;
   startNode.distance = 0;
   const unvisited = grid.flat();
 
@@ -94,11 +195,11 @@ export async function* dijkstra(
 
 // --- A* ---
 export async function* aStar(
-  grid: Node[][],
-  startNode: Node,
-  endNode: Node,
-  heuristic: HeuristicType = 'Manhattan',
+  input: PathfindingInput<{ heuristic: PathfindingHeuristicType }>,
 ) {
+  const { grid, startNode, endNode } = input;
+  const { heuristic } = input.options;
+
   startNode.distance = 0;
   startNode.heuristic = getDistance(startNode, endNode, heuristic);
   startNode.totalCost = startNode.distance + startNode.heuristic;
@@ -136,8 +237,9 @@ export async function* aStar(
 }
 
 // --- BFS ---
-export async function* bfs(grid: Node[][], startNode: Node, endNode: Node) {
-  const queue: Node[] = [startNode];
+export async function* bfs(input: PathfindingInput) {
+  const { grid, startNode, endNode } = input;
+  const queue: PathfindingNode[] = [startNode];
   startNode.isVisited = true;
 
   while (queue.length > 0) {
@@ -162,8 +264,9 @@ export async function* bfs(grid: Node[][], startNode: Node, endNode: Node) {
 }
 
 // --- DFS ---
-export async function* dfs(grid: Node[][], startNode: Node, endNode: Node) {
-  const stack: Node[] = [startNode];
+export async function* dfs(input: PathfindingInput) {
+  const { grid, startNode, endNode } = input;
+  const stack: PathfindingNode[] = [startNode];
 
   while (stack.length > 0) {
     const curr = stack.pop()!;
@@ -192,11 +295,11 @@ export async function* dfs(grid: Node[][], startNode: Node, endNode: Node) {
 
 // --- GREEDY BEST-FIRST ---
 export async function* greedyBestFirst(
-  grid: Node[][],
-  startNode: Node,
-  endNode: Node,
-  heuristic: HeuristicType = 'Manhattan',
+  input: PathfindingInput<{ heuristic: PathfindingHeuristicType }>,
 ) {
+  const { grid, startNode, endNode } = input;
+  const { heuristic } = input.options;
+
   startNode.heuristic = getDistance(startNode, endNode, heuristic);
   const openSet = [startNode];
 
@@ -228,7 +331,7 @@ export async function* greedyBestFirst(
 }
 
 // --- DISPLAY STRINGS (Kept as provided) ---
-export const dijkstraCode = `function dijkstra(grid, start, end) {
+export const dijkstraTraceCode = `function dijkstra(grid, start, end) {
   start.distance = 0;
   const unvisited = grid.flat();
   while (unvisited.length) {
@@ -241,7 +344,7 @@ export const dijkstraCode = `function dijkstra(grid, start, end) {
   }
 }`;
 
-export const aStarCode = `function aStar(grid, start, end) {
+export const aStarTraceCode = `function aStar(grid, start, end) {
   openSet.push(start);
   while (openSet.length) {
     const curr = getLowestTotalCost(openSet); 
@@ -251,7 +354,7 @@ export const aStarCode = `function aStar(grid, start, end) {
   }
 }`;
 
-export const greedyCode = `function greedyBestFirst(grid, start, end) {
+export const greedyTraceCode = `function greedyBestFirst(grid, start, end) {
   openSet.push(start);
   while (openSet.length) {
     const curr = getLowestHeuristic(openSet); 
@@ -261,7 +364,7 @@ export const greedyCode = `function greedyBestFirst(grid, start, end) {
   }
 }`;
 
-export const bfsCode = `function bfs(start, end) {
+export const bfsTraceCode = `function bfs(start, end) {
   const queue = [start];
   while (queue.length > 0) {
     const curr = queue.shift(); 
@@ -275,7 +378,7 @@ export const bfsCode = `function bfs(start, end) {
   }
 }`;
 
-export const dfsCode = `function dfs(start, end) {
+export const dfsTraceCode = `function dfs(start, end) {
   const stack = [start];
   while (stack.length > 0) {
     const curr = stack.pop(); 

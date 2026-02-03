@@ -2,42 +2,33 @@
 import { useState, useCallback } from 'react';
 import {
   linearSearch,
-  linearSearchCode,
+  linearSearchTraceCode,
   binarySearch,
-  binarySearchCode,
+  binarySearchTraceCode,
   jumpSearch,
-  jumpSearchCode,
-} from '@/algorithms/searchingAlgorithms';
+  jumpSearchTraceCode,
+  interpolationSearch,
+  interpolationSearchTraceCode,
+  exponentialSearch,
+  exponentialSearchTraceCode,
+  SearchStep,
+  searchComplexities,
+  SearchInput,
+  SearchAlgorithmType,
+} from '@/hooks/algorithms/searchingAlgorithms';
 import { RawBenchmarkData } from '@/components/BenchmarkModal';
 import { LogItem } from '@/components/TelemetryLog';
-
-export type AlgorithmType = 'Linear' | 'Binary' | 'Jump';
+import { Complexity } from '@/hooks/algorithms/general';
 
 export function useSearchingLogic() {
-  const [algorithm, setAlgorithm] = useState<AlgorithmType>('Linear');
+  const [algorithm, setAlgorithm] = useState<SearchAlgorithmType>('Linear');
   const [isBenchmarking, setIsBenchmarking] = useState(false);
   const [showQuickReport, setShowQuickReport] = useState(false);
-  const [quickResults, setQuickResults] = useState<any[]>([]);
   const [history, setHistory] = useState<LogItem[]>([]);
   const [benchmarkData, setBenchmarkData] = useState<RawBenchmarkData[]>([]);
 
-  const getAlgoData = useCallback((type: AlgorithmType) => {
-    switch (type) {
-      case 'Binary':
-        return {
-          gen: binarySearch,
-          code: binarySearchCode,
-          complexity: 'O(log n)',
-        };
-      case 'Jump':
-        return { gen: jumpSearch, code: jumpSearchCode, complexity: 'O(√n)' };
-      default:
-        return {
-          gen: linearSearch,
-          code: linearSearchCode,
-          complexity: 'O(n)',
-        };
-    }
+  const getAlgoData = useCallback((type: SearchAlgorithmType) => {
+    return createAlgoData(type);
   }, []);
 
   return {
@@ -51,8 +42,47 @@ export function useSearchingLogic() {
     setHistory,
     benchmarkData,
     setBenchmarkData,
-    quickResults,
-    setQuickResults,
     getAlgoData,
   };
+}
+
+export type SearchingAlgoData = {
+  gen: (input: SearchInput) => AsyncGenerator<SearchStep>;
+  algorithmTraceCode: string;
+  complexity: Complexity;
+};
+
+function createAlgoData(type: SearchAlgorithmType): SearchingAlgoData {
+  switch (type) {
+    case 'Binary':
+      return {
+        gen: binarySearch,
+        algorithmTraceCode: binarySearchTraceCode,
+        complexity: searchComplexities.Binary,
+      };
+    case 'Jump':
+      return {
+        gen: jumpSearch,
+        algorithmTraceCode: jumpSearchTraceCode,
+        complexity: searchComplexities.Jump,
+      };
+    case 'Interpolation':
+      return {
+        gen: interpolationSearch,
+        algorithmTraceCode: interpolationSearchTraceCode,
+        complexity: searchComplexities.Interpolation,
+      };
+    case 'Exponential':
+      return {
+        gen: exponentialSearch,
+        algorithmTraceCode: exponentialSearchTraceCode,
+        complexity: searchComplexities.Exponential,
+      };
+    default:
+      return {
+        gen: linearSearch,
+        algorithmTraceCode: linearSearchTraceCode,
+        complexity: searchComplexities.Linear,
+      };
+  }
 }

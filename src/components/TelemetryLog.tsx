@@ -10,7 +10,8 @@ export interface LogItem {
 }
 
 export function TelemetryLog({ history }: { history: LogItem[] }) {
-  const displayHistory = history.slice(0, 10);
+  // Display only the latest 20
+  const displayHistory = history.slice(history.length - 20).reverse();
 
   return (
     <section className="flex-1">

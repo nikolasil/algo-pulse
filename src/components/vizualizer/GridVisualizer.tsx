@@ -2,10 +2,10 @@
 
 import React, { useRef, useState } from 'react';
 import { motion } from 'framer-motion';
-import { Node } from '@/algorithms/pathfindingAlgorithms';
+import { PathfindingNode } from '@/hooks/algorithms/pathfindingAlgorithms';
 
 interface GridVisualizerProps {
-  grid: Node[][];
+  grid: PathfindingNode[][];
   dimensions: { rows: number; cols: number };
   startPos: { row: number; col: number };
   endPos: { row: number; col: number };
@@ -41,7 +41,7 @@ export const GridVisualizer = ({
     }
   };
 
-  const getNodeStyles = (node: Node, r: number, c: number) => {
+  const getNodeStyles = (node: PathfindingNode, r: number, c: number) => {
     const isStart = r === startPos.row && c === startPos.col;
     const isEnd = r === endPos.row && c === endPos.col;
 
@@ -78,7 +78,7 @@ export const GridVisualizer = ({
       <div className="w-full max-w-[100vw] overflow-auto p-2 sm:p-4 bg-slate-950 rounded-xl border border-slate-800 shadow-2xl touch-none flex justify-center">
         <div
           ref={gridRef}
-          className="grid gap-[1px] bg-transparent origin-top transition-transform duration-200"
+          className="grid gap-px bg-transparent origin-top transition-transform duration-200"
           onTouchMove={handleTouchMove}
           style={{
             gridTemplateColumns: `repeat(${dimensions.cols}, ${BASE_NODE_SIZE}px)`,

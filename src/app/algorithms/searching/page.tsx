@@ -10,7 +10,9 @@ import { StatCard } from '@/components/StatCard';
 import { TelemetryLog } from '@/components/TelemetryLog';
 import { ExpandableSidebar } from '@/components/ExpandableSidebar';
 import { BenchmarkModal, RawBenchmarkData } from '@/components/BenchmarkModal';
-import { AlgorithmType, useSearchingLogic } from '@/hooks/useSearchingLogic';
+import { useSearchingLogic } from '@/hooks/useSearchingLogic';
+import { searchAlgorithms } from '@/hooks/algorithms/searchingAlgorithms';
+import { SelectionAlgorithm } from '@/components/SelectionAlgorithm';
 
 export default function SearchingPage() {
   const [arraySize, setArraySize] = useState(30);
@@ -88,7 +90,7 @@ export default function SearchingPage() {
         setArraySize(parsed.length);
       }
     } catch (e) {
-      console.error('Invalid array format');
+      console.error('Invalid array format', e);
     }
   };
 
@@ -97,7 +99,7 @@ export default function SearchingPage() {
       const { gen } = getAlgoData(algorithm);
       return async function* () {
         let isFound = false;
-        for await (const step of gen(array, target)) {
+        for await (const step of gen({ array: array, target: target })) {
           if (step.found !== undefined && step.found !== -1) {
             setFoundIndex(step.found);
             onFound(step.found);
@@ -142,24 +144,23 @@ export default function SearchingPage() {
     setIsBenchmarking(true);
     abortRef.current = false;
     stopSimulation();
-    const algos: AlgorithmType[] = ['Linear', 'Binary', 'Jump'];
     const results: RawBenchmarkData[] = [];
     const originalSpeed = speed;
 
-    for (const algo of algos) {
+    for (const algo of searchAlgorithms) {
       if (abortRef.current) break;
       setAlgorithm(algo);
       setFoundIndex(null);
       setSearchRange(null);
 
       let wasSuccessful = false;
-      const { gen, complexity } = getAlgoData(algo);
+      const { gen } = getAlgoData(algo);
       const startTime = performance.now();
 
       if (isVisual) {
         setSpeed(0);
         const wrapped = async function* () {
-          for await (const step of gen(array, target)) {
+          for await (const step of gen({ array: array, target: target })) {
             if (step.found !== undefined && step.found !== -1)
               wasSuccessful = true;
             if (step.range) setSearchRange(step.range);
@@ -168,7 +169,7 @@ export default function SearchingPage() {
         };
         await runSimulation(wrapped(), (val) => playTone(val));
       } else {
-        const it = gen(array, target);
+        const it = gen({ array: array, target: target });
         let res = await it.next();
         while (!res.done && !abortRef.current) {
           if (res.value?.found !== undefined && res.value.found !== -1)
@@ -182,7 +183,7 @@ export default function SearchingPage() {
         results.push({
           name: algo,
           time: duration,
-          complexity,
+          complexity: getAlgoData(algo).complexity.average,
           success: wasSuccessful,
           size: array.length,
         });
@@ -212,31 +213,14 @@ export default function SearchingPage() {
       <ExpandableSidebar>
         <NavHeader title="Search Pulse" subtitle="Diagnostic Engine" />
         <section>
-          <div className="flex justify-between items-center mb-2">
-            <h2 className="text-[10px] font-bold text-slate-400 tracking-widest">
-              Select Algorithm
-            </h2>
-            <div className="flex gap-1">
-              {(['Linear', 'Binary', 'Jump'] as AlgorithmType[]).map((type) => (
-                <button
-                  key={type}
-                  onClick={() => {
-                    setAlgorithm(type);
-                    setFoundIndex(null);
-                    setSearchRange(null);
-                    stopSimulation();
-                  }}
-                  className={`px-2 py-0.5 rounded text-[8px] font-bold transition-all ${algorithm === type ? 'bg-cyan-600 shadow-md' : 'bg-slate-800 text-slate-500'}`}
-                >
-                  {type}
-                </button>
-              ))}
-            </div>
-          </div>
-          <CodeViewer
-            code={getAlgoData(algorithm).code}
-            activeLine={activeLine}
+          <SelectionAlgorithm
+            algorithm={algorithm}
+            setAlgorithm={setAlgorithm}
+            algorithmOptions={searchAlgorithms}
+            hasGenerator={hasGenerator}
+            isBenchmarking={isBenchmarking}
           />
+          <CodeViewer data={getAlgoData(algorithm)} activeLine={activeLine} />
         </section>
         <TelemetryLog history={history} />
       </ExpandableSidebar>
@@ -285,7 +269,7 @@ export default function SearchingPage() {
           }}
           onStartStepByStep={() => {
             const { gen } = getAlgoData(algorithm);
-            startStepByStep(gen([...array], target));
+            startStepByStep(gen({ array: [...array], target: target }));
             stepForward();
           }}
         />
@@ -304,7 +288,7 @@ export default function SearchingPage() {
           />
           <StatCard
             label="Complexity"
-            value={getAlgoData(algorithm).complexity}
+            value={getAlgoData(algorithm).complexity.average}
           />
           <StatCard label="Data Points" value={array.length} />
           <StatCard
@@ -320,13 +304,13 @@ export default function SearchingPage() {
           />
         </div>
 
-        <div className="relative flex-1 min-h-[400px] w-full bg-slate-950 rounded-3xl border border-slate-800/50 flex items-end justify-center px-4 pb-2 gap-[2px] overflow-hidden">
+        <div className="relative flex-1 min-h-100 w-full bg-slate-950 rounded-3xl border border-slate-800/50 flex items-end justify-center px-4 pb-2 gap-0.5 overflow-hidden">
           {array.map((val, idx) => {
             const isOutOfRange =
               searchRange && (idx < searchRange[0] || idx > searchRange[1]);
             let status: 'idle' | 'comparing' | 'found' = 'idle';
             if (foundIndex === idx) status = 'found';
-            else if (comparing.includes(idx)) status = 'comparing';
+            else if (comparing?.includes(idx)) status = 'comparing';
 
             return (
               <VisualizerBar

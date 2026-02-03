@@ -1,17 +1,18 @@
 'use client';
-import { useState, useEffect, useRef } from 'react';
-import { useAlgorithm } from '@/hooks/useAlgorithm';
-import { useAudio } from '@/hooks/useAudio';
-import { useSortingLogic, AlgorithmType } from '@/hooks/useSortingLogic';
-
-import { ControlPanel } from '@/components/ControlPanel';
+import { sortingAlgorithms } from '@/hooks/algorithms/sortingAlgorithms';
+import { RawBenchmarkData, BenchmarkModal } from '@/components/BenchmarkModal';
 import { CodeViewer } from '@/components/CodeViewer';
-import { VisualizerBar } from '@/components/vizualizer/BarVizualizer';
+import { ControlPanel } from '@/components/ControlPanel';
+import { ExpandableSidebar } from '@/components/ExpandableSidebar';
 import { NavHeader } from '@/components/NavHeader';
+import { SelectionAlgorithm } from '@/components/SelectionAlgorithm';
 import { StatCard } from '@/components/StatCard';
 import { TelemetryLog } from '@/components/TelemetryLog';
-import { ExpandableSidebar } from '@/components/ExpandableSidebar';
-import { BenchmarkModal, RawBenchmarkData } from '@/components/BenchmarkModal';
+import { VisualizerBar } from '@/components/vizualizer/BarVizualizer';
+import { useAlgorithm } from '@/hooks/useAlgorithm';
+import { useAudio } from '@/hooks/useAudio';
+import { useSortingLogic } from '@/hooks/useSortingLogic';
+import { useState, useRef, useCallback, useEffect } from 'react';
 
 export default function SortingPage() {
   const [arraySize, setArraySize] = useState(50);
@@ -20,6 +21,13 @@ export default function SortingPage() {
   const timerIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const hasInitialized = useRef(false);
   const abortBenchmarkRef = useRef(false);
+
+  // 1. State for bar width (Zoom)
+  const [barWidth, setBarWidth] = useState(32);
+
+  // 2. Handlers
+  const zoomIn = () => setBarWidth((prev) => Math.min(prev + 8, 100)); // Max width 100px
+  const zoomOut = () => setBarWidth((prev) => Math.max(prev - 8, 1)); // Min width 8px
 
   const { playTone } = useAudio();
   const {
@@ -55,7 +63,14 @@ export default function SortingPage() {
     generatorRef,
   } = useAlgorithm([]);
 
-  const startTimer = () => {
+  const stopTimer = useCallback(() => {
+    if (timerIntervalRef.current) {
+      clearInterval(timerIntervalRef.current);
+      timerIntervalRef.current = null;
+    }
+  }, []);
+
+  const startTimer = useCallback(() => {
     stopTimer();
     setExecutionTime(0);
     const startTime = Date.now();
@@ -63,14 +78,7 @@ export default function SortingPage() {
       () => setExecutionTime(Date.now() - startTime),
       10,
     );
-  };
-
-  const stopTimer = () => {
-    if (timerIntervalRef.current) {
-      clearInterval(timerIntervalRef.current);
-      timerIntervalRef.current = null;
-    }
-  };
+  }, [stopTimer]);
 
   useEffect(() => {
     if (!hasInitialized.current) {
@@ -91,7 +99,8 @@ export default function SortingPage() {
     stopSimulation();
     const startTime = performance.now();
     startTimer();
-    await runSimulation(gen([...array]), (val) => playTone(val));
+    await runSimulation(gen({ array: [...array] }), (val) => playTone(val));
+
     stopTimer();
     const finalDuration = performance.now() - startTime;
     setExecutionTime(finalDuration);
@@ -112,23 +121,24 @@ export default function SortingPage() {
     stopSimulation();
     setExecutionTime(0);
 
-    const algorithms: AlgorithmType[] = ['Bubble', 'Quick', 'Merge'];
     const results: RawBenchmarkData[] = [];
     const originalArray = [...array];
     const originalSpeed = speed;
 
-    for (const algo of algorithms) {
+    for (const algo of sortingAlgorithms) {
       if (abortBenchmarkRef.current) break;
       setAlgorithm(algo);
       const startTime = performance.now();
       startTimer();
-      const { gen, complexity } = getAlgoData(algo);
+      const { gen } = getAlgoData(algo);
 
       if (isVisual) {
         setSpeed(0);
-        await runSimulation(gen([...originalArray]), (val) => playTone(val));
+        await runSimulation(gen({ array: [...originalArray] }), (val) =>
+          playTone(val),
+        );
       } else {
-        const it = gen([...originalArray]);
+        const it = gen({ array: [...originalArray] });
         let res = await it.next();
         while (!res.done && !abortBenchmarkRef.current) res = await it.next();
       }
@@ -140,7 +150,7 @@ export default function SortingPage() {
         results.push({
           name: algo,
           time: Math.round(finalDuration),
-          complexity,
+          complexity: getAlgoData(algo).complexity.average,
           size: originalArray.length,
         });
         setArray(originalArray);
@@ -176,7 +186,7 @@ export default function SortingPage() {
         setArraySize(parsed.length);
       }
     } catch (e) {
-      console.error('Invalid array format');
+      console.error('Invalid array input', e);
     }
   };
 
@@ -185,27 +195,14 @@ export default function SortingPage() {
       <ExpandableSidebar>
         <NavHeader title="Sort Pulse" subtitle="Diagnostic Engine" />
         <section>
-          <div className="flex justify-between items-center mb-2">
-            <h2 className="text-[10px] font-bold text-slate-400 tracking-widest">
-              Select Algorithm
-            </h2>
-            <div className="flex gap-1">
-              {(['Bubble', 'Quick', 'Merge'] as AlgorithmType[]).map((type) => (
-                <button
-                  key={type}
-                  onClick={() => setAlgorithm(type)}
-                  disabled={hasGenerator || isBenchmarking}
-                  className={`px-2 py-0.5 rounded text-[8px] font-bold transition-all ${algorithm === type ? 'bg-cyan-600 shadow-md shadow-cyan-900/40' : 'bg-slate-800 text-slate-500'}`}
-                >
-                  {type}
-                </button>
-              ))}
-            </div>
-          </div>
-          <CodeViewer
-            code={getAlgoData(algorithm).code}
-            activeLine={activeLine}
+          <SelectionAlgorithm
+            algorithm={algorithm}
+            setAlgorithm={setAlgorithm}
+            algorithmOptions={sortingAlgorithms}
+            hasGenerator={hasGenerator}
+            isBenchmarking={isBenchmarking}
           />
+          <CodeViewer data={getAlgoData(algorithm)} activeLine={activeLine} />
         </section>
         <TelemetryLog history={history} />
       </ExpandableSidebar>
@@ -213,6 +210,7 @@ export default function SortingPage() {
       <section className="flex-1 p-4 sm:p-6 lg:p-10 flex flex-col gap-6 relative min-w-0">
         <ControlPanel
           size={arraySize}
+          maxSize={200}
           sizeShower={true}
           speed={speed}
           isPaused={isPaused}
@@ -241,7 +239,7 @@ export default function SortingPage() {
           }}
           onStartStepByStep={() => {
             const { gen } = getAlgoData(algorithm);
-            startStepByStep(gen([...array]));
+            startStepByStep(gen({ array: [...array] }));
             stepForward();
           }}
         />
@@ -264,25 +262,48 @@ export default function SortingPage() {
           <StatCard
             label="Exec Time"
             value={(executionTime / 1000).toFixed(2) + 's'}
-            highlight={!!timerIntervalRef.current}
           />
           <StatCard
             label="Complexity"
-            value={getAlgoData(algorithm).complexity}
+            value={getAlgoData(algorithm).complexity.average}
           />
           <StatCard label="Data Points" value={array.length} />
           <StatCard label="Cycle Speed" value={`${speed}ms`} />
         </div>
 
-        <div className="relative flex-1 min-h-[400px] w-full bg-slate-950 rounded-3xl border border-slate-800/50 flex items-end justify-center px-4 pb-2 gap-[1px] sm:gap-[2px] overflow-hidden">
-          {array.map((val, idx) => (
-            <VisualizerBar
-              key={idx}
-              val={val}
-              status={comparing.includes(idx) ? 'swapping' : 'idle'}
-              maxVal={100}
-            />
-          ))}
+        <div className="flex flex-col gap-4">
+          {/* ZOOM CONTROLS */}
+          <div className="flex gap-2 mb-4">
+            <button
+              onClick={zoomOut}
+              className="px-3 py-1 bg-slate-800 text-white rounded hover:bg-slate-700"
+            >
+              - Zoom Out
+            </button>
+            <button
+              onClick={zoomIn}
+              className="px-3 py-1 bg-slate-800 text-white rounded hover:bg-slate-700"
+            >
+              + Zoom In
+            </button>
+          </div>
+
+          {/* SCROLLABLE CONTAINER */}
+          <div className="w-full overflow-x-auto pb-10 custom-scrollbar">
+            <div className="flex items-end h-100 min-w-full px-4 gap-1">
+              {array.map((val, idx) => (
+                <VisualizerBar
+                  key={idx}
+                  val={val}
+                  width={barWidth} // <--- Pass the zoom level here
+                  status={comparing?.includes(idx) ? 'swapping' : 'idle'}
+                  maxVal={Math.max(...array)}
+                  isFirst={idx === 0}
+                  isLast={idx === array.length - 1}
+                />
+              ))}
+            </div>
+          </div>
         </div>
       </section>
 
