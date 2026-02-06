@@ -76,7 +76,7 @@ export interface SortStep {
   array?: number[];
   pivot?: number;
   range?: [number, number];
-  variables: Record<string, number | string | boolean>;
+  variables: Record<string, number | string | boolean | undefined>;
 }
 
 // --- BUBBLE SORT ---

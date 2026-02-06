@@ -52,7 +52,7 @@ export interface SearchStep {
   comparing?: number[];
   range?: [number, number];
   found?: number;
-  variables: Record<string, number | string | boolean>;
+  variables: Record<string, number | string | boolean | undefined>;
 }
 
 // --- LINEAR SEARCH ---

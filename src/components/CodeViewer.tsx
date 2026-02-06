@@ -12,7 +12,7 @@ interface Props {
     | SearchingAlgoData
     | PathfindingAlgoData<{ heuristic: PathfindingHeuristicType }>;
   activeLine: number;
-  variables: Record<string, number | string | boolean>;
+  variables: Record<string, number | string | boolean | undefined>;
 }
 
 export const CodeViewer = ({ data, activeLine, variables }: Props) => {

@@ -21,7 +21,7 @@ export interface VisualState {
   found?: number;
   // Pathfinding
   grid?: PathfindingNode[][];
-  variables: Record<string, number | string | boolean>;
+  variables: Record<string, number | string | boolean | undefined>;
 }
 export type AllAlgorithmTypes =
   | SortingAlgorithmType

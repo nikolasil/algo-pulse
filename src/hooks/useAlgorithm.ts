@@ -19,7 +19,7 @@ export const useAlgorithm = (
   const [comparing, setComparing] = useState<number[] | undefined>([]);
   const [activeLine, setActiveLine] = useState<number>(0);
   const [variables, setVariables] = useState<
-    Record<string, number | string | boolean>
+    Record<string, number | string | boolean | undefined>
   >({});
 
   const arrayRef = useRef(initialArray);

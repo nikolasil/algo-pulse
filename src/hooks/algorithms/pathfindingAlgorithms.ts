@@ -102,7 +102,7 @@ export interface PathfindingStep {
     totalCost: number;
     previousNode: PathfindingNode | null;
   }[][];
-  variables: Record<string, number | string | boolean>;
+  variables: Record<string, number | string | boolean | undefined>;
 }
 
 const getDistance = (
