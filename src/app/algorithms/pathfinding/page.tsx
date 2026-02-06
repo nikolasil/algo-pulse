@@ -62,6 +62,7 @@ export default function GridPage() {
     runSimulation,
     isPaused,
     activeLine,
+    variables,
     speed,
     setSpeed,
     stopSimulation,
@@ -436,7 +437,7 @@ export default function GridPage() {
             )}
           </div>
           <div>
-            <CodeViewer data={getAlgoData(algorithm)} activeLine={activeLine} />
+            <CodeViewer data={getAlgoData(algorithm)} activeLine={activeLine} variables={variables} />
           </div>
           <TelemetryLog history={history} />
         </section>

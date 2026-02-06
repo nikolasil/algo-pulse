@@ -36,6 +36,7 @@ export default function SearchingPage() {
     speed,
     comparing,
     activeLine,
+    variables,
     runSimulation,
     stopSimulation,
     togglePause,
@@ -220,7 +221,7 @@ export default function SearchingPage() {
             hasGenerator={hasGenerator}
             isBenchmarking={isBenchmarking}
           />
-          <CodeViewer data={getAlgoData(algorithm)} activeLine={activeLine} />
+          <CodeViewer data={getAlgoData(algorithm)} activeLine={activeLine} variables={variables} />
         </section>
         <TelemetryLog history={history} />
       </ExpandableSidebar>

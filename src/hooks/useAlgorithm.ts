@@ -18,6 +18,9 @@ export const useAlgorithm = (
   const [speed, setSpeed] = useState(50);
   const [comparing, setComparing] = useState<number[] | undefined>([]);
   const [activeLine, setActiveLine] = useState<number>(0);
+  const [variables, setVariables] = useState<
+    Record<string, number | string | boolean>
+  >({});
 
   const arrayRef = useRef(initialArray);
   const gridRef = useRef(initialGrid);
@@ -52,6 +55,7 @@ export const useAlgorithm = (
     setIsPaused(true);
     setComparing([]);
     setActiveLine(0);
+    setVariables({});
     generatorRef.current = null;
     historyRef.current = [];
     currentStepIdx.current = -1;
@@ -168,6 +172,9 @@ export const useAlgorithm = (
         const sSearch = step as SearchStep;
         const sPath = step as PathfindingStep;
 
+        // Safely access variables if they exist
+        const currentVariables = step.variables || {};
+
         // Deep copy grid if it exists, otherwise shallow copy array
         const state: VisualState = {
           line: step.line ?? 0,
@@ -183,12 +190,14 @@ export const useAlgorithm = (
               : undefined,
           comparing: sSort.comparing || sSearch.comparing || [],
           found: sSearch.found,
+          variables: currentVariables,
         };
 
         historyRef.current.push(state);
         currentStepIdx.current++;
 
         if (step.line !== undefined) setActiveLine(step.line);
+        setVariables(currentVariables);
 
         if (isPathfinding && sPath.grid) {
           updateGrid(sPath.grid);
@@ -225,6 +234,7 @@ export const useAlgorithm = (
       if (state.grid) updateGrid(state.grid);
       setComparing(state.comparing || []);
       setActiveLine(state.line ?? 0);
+      setVariables(state.variables || {});
       return;
     }
 
@@ -234,6 +244,9 @@ export const useAlgorithm = (
       const valSort = value as SortStep;
       const valSearch = value as SearchStep;
       const valPath = value as PathfindingStep;
+
+      // Safely access variables if they exist
+      const currentVariables = value.variables || {};
 
       const state: VisualState = {
         line: value.line ?? 0,
@@ -247,8 +260,8 @@ export const useAlgorithm = (
           : gridRef.current.length > 0
             ? JSON.parse(JSON.stringify(gridRef.current))
             : undefined,
-        // Fix: Check for comparing on both Sort and Search steps
         comparing: valSort.comparing || valSearch.comparing || [],
+        variables: currentVariables,
       };
 
       historyRef.current.push(state);
@@ -258,6 +271,7 @@ export const useAlgorithm = (
       if (state.grid) updateGrid(state.grid);
       setComparing(state.comparing);
       setActiveLine(state.line);
+      setVariables(currentVariables);
     } else if (done) {
       stopSimulation();
     }
@@ -271,6 +285,7 @@ export const useAlgorithm = (
       if (state.grid) updateGrid(state.grid);
       setComparing(state.comparing || []);
       setActiveLine(state.line ?? 0);
+      setVariables(state.variables || {});
     }
   }, [updateArray, updateGrid]);
 
@@ -281,6 +296,7 @@ export const useAlgorithm = (
     setGrid: updateGrid,
     comparing,
     activeLine,
+    variables,
     isPaused,
     hasGenerator: !!generatorRef.current,
     togglePause,

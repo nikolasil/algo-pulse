@@ -50,6 +50,7 @@ export default function SortingPage() {
     speed,
     comparing,
     activeLine,
+    variables,
     runSimulation,
     stopSimulation,
     togglePause,
@@ -202,7 +203,11 @@ export default function SortingPage() {
             hasGenerator={hasGenerator}
             isBenchmarking={isBenchmarking}
           />
-          <CodeViewer data={getAlgoData(algorithm)} activeLine={activeLine} />
+          <CodeViewer
+            data={getAlgoData(algorithm)}
+            activeLine={activeLine}
+            variables={variables}
+          />
         </section>
         <TelemetryLog history={history} />
       </ExpandableSidebar>

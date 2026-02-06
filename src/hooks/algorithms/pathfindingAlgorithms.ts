@@ -102,6 +102,7 @@ export interface PathfindingStep {
     totalCost: number;
     previousNode: PathfindingNode | null;
   }[][];
+  variables: Record<string, number | string | boolean>;
 }
 
 const getDistance = (
@@ -147,190 +148,25 @@ async function* reconstructPath(
   grid: PathfindingNode[][],
   endNode: PathfindingNode,
   line: number,
+  finalVars: Record<string, number | string | boolean>,
 ) {
   let current: PathfindingNode | null = endNode;
+  let pathLength = 0;
+
   while (current !== null) {
     current.isPath = true;
+    pathLength++;
     current = current.previousNode;
-    // Visually update the path
-    yield { grid: cloneGrid(grid), line };
+
+    // Yield the grid and the variables at every step of the path animation
+    yield {
+      grid: cloneGrid(grid),
+      line,
+      variables: { ...finalVars, pathLength },
+    };
   }
 }
-
 // --- DIJKSTRA ---
-export async function* dijkstra(
-  input: PathfindingInput,
-): AsyncGenerator<PathfindingStep> {
-  const { grid, startNode, endNode } = input;
-  startNode.distance = 0;
-  const unvisited = grid.flat();
-
-  while (unvisited.length > 0) {
-    unvisited.sort((a, b) => a.distance - b.distance);
-    yield { line: 4 }; // Highlight Sort (Fast: No clone)
-
-    const curr = unvisited.shift();
-    if (!curr || curr.isWall || curr.distance === Infinity) continue;
-
-    if (curr.row === endNode.row && curr.col === endNode.col) {
-      yield* reconstructPath(grid, curr, 8);
-      return;
-    }
-
-    curr.isVisited = true;
-    yield { grid: cloneGrid(grid), line: 7 }; // Highlight Visited (Visual change: Clone)
-
-    const neighbors = getNeighbors(curr, grid);
-    for (const neighbor of neighbors) {
-      const moveCost = neighbor.isMud ? 5 : 1;
-      const newDistance = curr.distance + moveCost;
-      if (newDistance < neighbor.distance) {
-        neighbor.distance = newDistance;
-        neighbor.previousNode = curr;
-      }
-    }
-    yield { line: 9 }; // Highlight Neighbors update (Fast: No clone)
-  }
-}
-
-// --- A* ---
-export async function* aStar(
-  input: PathfindingInput<{ heuristic: PathfindingHeuristicType }>,
-) {
-  const { grid, startNode, endNode } = input;
-  const { heuristic } = input.options;
-
-  startNode.distance = 0;
-  startNode.heuristic = getDistance(startNode, endNode, heuristic);
-  startNode.totalCost = startNode.distance + startNode.heuristic;
-  const openSet = [startNode];
-
-  while (openSet.length > 0) {
-    openSet.sort((a, b) => a.totalCost - b.totalCost);
-    yield { line: 3 }; // Highlight getLowestTotalCost
-
-    const curr = openSet.shift();
-    if (!curr || curr.isWall) continue;
-
-    if (curr.row === endNode.row && curr.col === endNode.col) {
-      yield* reconstructPath(grid, curr, 4);
-      return;
-    }
-
-    curr.isVisited = true;
-    yield { grid: cloneGrid(grid), line: 5 }; // Highlight Visited (Visual change)
-
-    const neighbors = getNeighbors(curr, grid);
-    for (const neighbor of neighbors) {
-      const moveCost = neighbor.isMud ? 5 : 1;
-      const gScore = curr.distance + moveCost;
-      if (gScore < neighbor.distance) {
-        neighbor.previousNode = curr;
-        neighbor.distance = gScore;
-        neighbor.heuristic = getDistance(neighbor, endNode, heuristic);
-        neighbor.totalCost = neighbor.distance + neighbor.heuristic;
-        if (!openSet.includes(neighbor)) openSet.push(neighbor);
-      }
-    }
-    yield { line: 6 }; // Highlight Neighbors update
-  }
-}
-
-// --- BFS ---
-export async function* bfs(input: PathfindingInput) {
-  const { grid, startNode, endNode } = input;
-  const queue: PathfindingNode[] = [startNode];
-  startNode.isVisited = true;
-
-  while (queue.length > 0) {
-    const curr = queue.shift()!;
-    yield { line: 3 }; // Highlight shift
-
-    if (curr.row === endNode.row && curr.col === endNode.col) {
-      yield* reconstructPath(grid, curr, 4);
-      return;
-    }
-
-    const neighbors = getNeighbors(curr, grid);
-    for (const neighbor of neighbors) {
-      if (!neighbor.isVisited) {
-        neighbor.isVisited = true;
-        neighbor.previousNode = curr;
-        queue.push(neighbor);
-      }
-    }
-    yield { grid: cloneGrid(grid), line: 5 }; // Highlight Neighbors (Visual change)
-  }
-}
-
-// --- DFS ---
-export async function* dfs(input: PathfindingInput) {
-  const { grid, startNode, endNode } = input;
-  const stack: PathfindingNode[] = [startNode];
-
-  while (stack.length > 0) {
-    const curr = stack.pop()!;
-    yield { line: 3 }; // Highlight pop
-
-    if (curr.row === endNode.row && curr.col === endNode.col) {
-      yield* reconstructPath(grid, curr, 4);
-      return;
-    }
-
-    if (!curr.isVisited) {
-      curr.isVisited = true;
-      yield { grid: cloneGrid(grid), line: 6 }; // Highlight Visited (Visual change)
-
-      const neighbors = getNeighbors(curr, grid);
-      for (const neighbor of neighbors) {
-        if (!neighbor.isVisited) {
-          neighbor.previousNode = curr;
-          stack.push(neighbor);
-        }
-      }
-      yield { line: 7 }; // Highlight Neighbors update
-    }
-  }
-}
-
-// --- GREEDY BEST-FIRST ---
-export async function* greedyBestFirst(
-  input: PathfindingInput<{ heuristic: PathfindingHeuristicType }>,
-) {
-  const { grid, startNode, endNode } = input;
-  const { heuristic } = input.options;
-
-  startNode.heuristic = getDistance(startNode, endNode, heuristic);
-  const openSet = [startNode];
-
-  while (openSet.length > 0) {
-    openSet.sort((a, b) => a.heuristic - b.heuristic);
-    yield { line: 3 }; // Highlight getLowestHeuristic
-
-    const curr = openSet.shift();
-    if (!curr || curr.isWall || curr.isVisited) continue;
-
-    if (curr.row === endNode.row && curr.col === endNode.col) {
-      yield* reconstructPath(grid, curr, 4);
-      return;
-    }
-
-    curr.isVisited = true;
-    yield { grid: cloneGrid(grid), line: 5 }; // Highlight Visited
-
-    const neighbors = getNeighbors(curr, grid);
-    for (const neighbor of neighbors) {
-      if (!neighbor.isVisited) {
-        neighbor.previousNode = curr;
-        neighbor.heuristic = getDistance(neighbor, endNode, heuristic);
-        if (!openSet.includes(neighbor)) openSet.push(neighbor);
-      }
-    }
-    yield { line: 6 }; // Highlight Neighbors update
-  }
-}
-
-// --- DISPLAY STRINGS (Kept as provided) ---
 export const dijkstraTraceCode = `function dijkstra(grid, start, end) {
   start.distance = 0;
   const unvisited = grid.flat();
@@ -344,6 +180,63 @@ export const dijkstraTraceCode = `function dijkstra(grid, start, end) {
   }
 }`;
 
+export async function* dijkstra(
+  input: PathfindingInput,
+): AsyncGenerator<PathfindingStep> {
+  const { grid, startNode, endNode } = input;
+  startNode.distance = 0;
+  const unvisited = grid.flat();
+
+  while (unvisited.length > 0) {
+    unvisited.sort((a, b) => a.distance - b.distance);
+    yield {
+      line: 4,
+      variables: { unvisitedLeft: unvisited.length, sorting: true },
+    };
+
+    const curr = unvisited.shift();
+    if (!curr || curr.isWall || curr.distance === Infinity) continue;
+    yield {
+      line: 5,
+      variables: { row: curr.row, col: curr.col, dist: curr.distance },
+    };
+
+    if (curr.row === endNode.row && curr.col === endNode.col) {
+      yield* reconstructPath(grid, curr, 7, {
+        row: curr.row,
+        col: curr.col,
+        found: 'Success!',
+        totalDistance: curr.distance,
+      });
+      return;
+    }
+
+    curr.isVisited = true;
+    yield {
+      grid: cloneGrid(grid),
+      line: 6,
+      variables: { row: curr.row, col: curr.col, status: 'Visiting' },
+    };
+
+    const neighbors = getNeighbors(curr, grid);
+    let updatedCount = 0;
+    for (const neighbor of neighbors) {
+      const moveCost = neighbor.isMud ? 5 : 1;
+      const newDistance = curr.distance + moveCost;
+      if (newDistance < neighbor.distance) {
+        neighbor.distance = newDistance;
+        neighbor.previousNode = curr;
+        updatedCount++;
+      }
+    }
+    yield {
+      line: 8,
+      variables: { neighborsChecked: neighbors.length, updated: updatedCount },
+    };
+  }
+}
+
+// --- A* ---
 export const aStarTraceCode = `function aStar(grid, start, end) {
   openSet.push(start);
   while (openSet.length) {
@@ -354,16 +247,78 @@ export const aStarTraceCode = `function aStar(grid, start, end) {
   }
 }`;
 
-export const greedyTraceCode = `function greedyBestFirst(grid, start, end) {
-  openSet.push(start);
-  while (openSet.length) {
-    const curr = getLowestHeuristic(openSet); 
-    if (curr === end) return getPath(end); 
-    curr.isVisited = true; 
-    updateGreedyNeighbors(curr, end); 
-  }
-}`;
+export async function* aStar(
+  input: PathfindingInput<{ heuristic: PathfindingHeuristicType }>,
+) {
+  const { grid, startNode, endNode } = input;
+  const { heuristic } = input.options;
 
+  startNode.distance = 0;
+  startNode.heuristic = getDistance(startNode, endNode, heuristic);
+  startNode.totalCost = startNode.distance + startNode.heuristic;
+  const openSet = [startNode];
+
+  while (openSet.length > 0) {
+    openSet.sort((a, b) => a.totalCost - b.totalCost);
+    const curr = openSet.shift();
+    if (!curr || curr.isWall) continue;
+
+    yield {
+      line: 3,
+      variables: {
+        openSetSize: openSet.length + 1,
+        row: curr.row,
+        col: curr.col,
+        fScore: curr.totalCost,
+      },
+    };
+
+    if (curr.row === endNode.row && curr.col === endNode.col) {
+      yield *
+        reconstructPath(grid, curr, 4, {
+          row: curr.row,
+          col: curr.col,
+          found: 'Success!',
+          totalDistance: curr.distance,
+        });
+      return;
+    }
+
+    curr.isVisited = true;
+    yield {
+      grid: cloneGrid(grid),
+      line: 5,
+      variables: {
+        row: curr.row,
+        col: curr.col,
+        gScore: curr.distance,
+        hScore: curr.heuristic,
+      },
+    };
+
+    const neighbors = getNeighbors(curr, grid);
+    for (const neighbor of neighbors) {
+      const moveCost = neighbor.isMud ? 5 : 1;
+      const gScore = curr.distance + moveCost;
+      if (gScore < neighbor.distance) {
+        neighbor.previousNode = curr;
+        neighbor.distance = gScore;
+        neighbor.heuristic = getDistance(neighbor, endNode, heuristic);
+        neighbor.totalCost = neighbor.distance + neighbor.heuristic;
+        if (!openSet.includes(neighbor)) openSet.push(neighbor);
+      }
+    }
+    yield {
+      line: 6,
+      variables: {
+        neighborsAdded: neighbors.length,
+        currentOpenSet: openSet.length,
+      },
+    };
+  }
+}
+
+// --- BFS ---
 export const bfsTraceCode = `function bfs(start, end) {
   const queue = [start];
   while (queue.length > 0) {
@@ -378,6 +333,48 @@ export const bfsTraceCode = `function bfs(start, end) {
   }
 }`;
 
+export async function* bfs(input: PathfindingInput) {
+  const { grid, startNode, endNode } = input;
+  const queue: PathfindingNode[] = [startNode];
+  startNode.isVisited = true;
+
+  while (queue.length > 0) {
+    const curr = queue.shift()!;
+    yield {
+      line: 4,
+      variables: { queueSize: queue.length + 1, row: curr.row, col: curr.col },
+    };
+
+    if (curr.row === endNode.row && curr.col === endNode.col) {
+      yield *
+        reconstructPath(grid, curr, 5, {
+          row: curr.row,
+          col: curr.col,
+          found: 'Success!',
+          totalDistance: curr.distance,
+        });
+      return;
+    }
+
+    const neighbors = getNeighbors(curr, grid);
+    let added = 0;
+    for (const neighbor of neighbors) {
+      if (!neighbor.isVisited) {
+        neighbor.isVisited = true;
+        neighbor.previousNode = curr;
+        queue.push(neighbor);
+        added++;
+      }
+    }
+    yield {
+      grid: cloneGrid(grid),
+      line: 6,
+      variables: { row: curr.row, col: curr.col, neighborsEnqueued: added },
+    };
+  }
+}
+
+// --- DFS ---
 export const dfsTraceCode = `function dfs(start, end) {
   const stack = [start];
   while (stack.length > 0) {
@@ -389,3 +386,116 @@ export const dfsTraceCode = `function dfs(start, end) {
     }
   }
 }`;
+
+export async function* dfs(input: PathfindingInput) {
+  const { grid, startNode, endNode } = input;
+  const stack: PathfindingNode[] = [startNode];
+
+  while (stack.length > 0) {
+    const curr = stack.pop()!;
+    yield {
+      line: 4,
+      variables: { stackSize: stack.length + 1, row: curr.row, col: curr.col },
+    };
+
+    if (curr.row === endNode.row && curr.col === endNode.col) {
+      yield *
+        reconstructPath(grid, curr, 5, {
+          row: curr.row,
+          col: curr.col,
+          found: 'Success!',
+          totalDistance: curr.distance,
+        });
+      return;
+    }
+
+    if (!curr.isVisited) {
+      curr.isVisited = true;
+      yield {
+        grid: cloneGrid(grid),
+        line: 7,
+        variables: { row: curr.row, col: curr.col, status: 'Exploring Depth' },
+      };
+
+      const neighbors = getNeighbors(curr, grid);
+      for (const neighbor of neighbors) {
+        if (!neighbor.isVisited) {
+          neighbor.previousNode = curr;
+          stack.push(neighbor);
+        }
+      }
+      yield { line: 8, variables: { stackSize: stack.length } };
+    }
+  }
+}
+
+// --- GREEDY BEST-FIRST ---
+export const greedyTraceCode = `function greedyBestFirst(grid, start, end) {
+  openSet.push(start);
+  while (openSet.length) {
+    const curr = getLowestHeuristic(openSet); 
+    if (curr === end) return getPath(end); 
+    curr.isVisited = true; 
+    updateGreedyNeighbors(curr, end); 
+  }
+}`;
+
+export async function* greedyBestFirst(
+  input: PathfindingInput<{ heuristic: PathfindingHeuristicType }>,
+) {
+  const { grid, startNode, endNode } = input;
+  const { heuristic } = input.options;
+
+  startNode.heuristic = getDistance(startNode, endNode, heuristic);
+  const openSet = [startNode];
+
+  while (openSet.length > 0) {
+    openSet.sort((a, b) => a.heuristic - b.heuristic);
+    const curr = openSet.shift();
+    if (!curr || curr.isWall || curr.isVisited) continue;
+
+    yield {
+      line: 4,
+      variables: {
+        openSetSize: openSet.length + 1,
+        hScore: curr.heuristic,
+        row: curr.row,
+        col: curr.col,
+      },
+    };
+
+    if (curr.row === endNode.row && curr.col === endNode.col) {
+      yield *
+        reconstructPath(grid, curr, 5, {
+          row: curr.row,
+          col: curr.col,
+          found: 'Success!',
+          totalDistance: curr.distance,
+        });
+      return;
+    }
+
+    curr.isVisited = true;
+    yield {
+      grid: cloneGrid(grid),
+      line: 6,
+      variables: { row: curr.row, col: curr.col, status: 'Visiting' },
+    };
+
+    const neighbors = getNeighbors(curr, grid);
+    for (const neighbor of neighbors) {
+      if (!neighbor.isVisited) {
+        neighbor.previousNode = curr;
+        neighbor.heuristic = getDistance(neighbor, endNode, heuristic);
+        if (!openSet.includes(neighbor)) openSet.push(neighbor);
+      }
+    }
+    yield {
+      line: 7,
+      variables: {
+        neighborsAdded: neighbors.length,
+        currentOpenSet: openSet.length,
+      },
+    };
+  }
+}

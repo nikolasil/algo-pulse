@@ -76,6 +76,7 @@ export interface SortStep {
   array?: number[];
   pivot?: number;
   range?: [number, number];
+  variables: Record<string, number | string | boolean>;
 }
 
 // --- BUBBLE SORT ---
@@ -93,13 +94,18 @@ export async function* bubbleSort(input: SortInput): AsyncGenerator<SortStep> {
   const array = input.array;
   const n = array.length;
   for (let i = 0; i < n; i++) {
-    yield { line: 2 };
+    yield { line: 2, variables: { i, n } };
     for (let j = 0; j < n - i - 1; j++) {
-      yield { line: 3, comparing: [j, j + 1] };
+      yield { line: 3, comparing: [j, j + 1], variables: { i, j, n } };
       if (array[j] > array[j + 1]) {
-        yield { line: 4, comparing: [j, j + 1] };
+        yield { line: 4, comparing: [j, j + 1], variables: { i, j, n } };
         [array[j], array[j + 1]] = [array[j + 1], array[j]];
-        yield { line: 5, array: [...array], comparing: [j, j + 1] };
+        yield {
+          line: 5,
+          array: [...array],
+          comparing: [j, j + 1],
+          variables: { i, j, n },
+        };
       }
     }
   }
@@ -108,9 +114,17 @@ export async function* bubbleSort(input: SortInput): AsyncGenerator<SortStep> {
 // --- QUICK SORT ---
 export const quickSortTraceCode = `function quickSort(arr, start, end) {
   if (start >= end) return;
-  let index = partition(arr, start, end);
-  quickSort(arr, start, index - 1);
-  quickSort(arr, index + 1, end);
+  let pivotValue = arr[end];
+  let pivotIndex = start;
+  for (let i = start; i < end; i++) {
+    if (arr[i] < pivotValue) {
+      swap(arr, i, pivotIndex);
+      pivotIndex++;
+    }
+  }
+  swap(arr, pivotIndex, end);
+  quickSort(arr, start, pivotIndex - 1);
+  quickSort(arr, pivotIndex + 1, end);
 }`;
 
 export async function* quickSort(
@@ -119,38 +133,72 @@ export async function* quickSort(
   end: number = input.array.length - 1,
 ): AsyncGenerator<SortStep> {
   const array = input.array;
-  yield { line: 2, range: [start, end] };
+  yield { line: 2, range: [start, end], variables: { start, end } };
   if (start >= end) return;
 
-  yield { line: 3 };
+  yield { line: 3, variables: { start, end } };
   const pivotValue = array[end];
   let pivotIndex = start;
 
   for (let i = start; i < end; i++) {
-    yield { comparing: [i, end], pivot: end };
+    yield {
+      line: 6,
+      comparing: [i, end],
+      pivot: end,
+      variables: { start, end, pivotIndex, pivotValue, i },
+    };
     if (array[i] < pivotValue) {
       [array[i], array[pivotIndex]] = [array[pivotIndex], array[i]];
-      yield { array: [...array], comparing: [i, pivotIndex] };
+      yield {
+        line: 7,
+        array: [...array],
+        comparing: [i, pivotIndex],
+        variables: { start, end, pivotIndex, pivotValue, i },
+      };
       pivotIndex++;
     }
   }
-  [array[pivotIndex], array[end]] = [array[end], array[pivotIndex]];
-  yield { array: [...array], pivot: pivotIndex };
 
-  yield { line: 4 };
+  [array[pivotIndex], array[end]] = [array[end], array[pivotIndex]];
+  yield {
+    line: 11,
+    array: [...array],
+    pivot: pivotIndex,
+    variables: { start, end, pivotIndex, pivotValue },
+  };
+
+  yield {
+    line: 12,
+    variables: { start, end, pivotIndex, newEnd: pivotIndex - 1 },
+  };
   yield* quickSort(input, start, pivotIndex - 1);
 
-  yield { line: 5 };
+  yield {
+    line: 13,
+    variables: { start, end, pivotIndex, newStart: pivotIndex + 1 },
+  };
   yield* quickSort(input, pivotIndex + 1, end);
 }
 
 // --- MERGE SORT ---
-export const mergeSortTraceCode = `function mergeSort(arr) {
-  if (arr.length <= 1) return arr;
-  const mid = Math.floor(arr.length / 2);
-  mergeSort(left);
-  mergeSort(right);
-  return merge(left, right);
+export const mergeSortTraceCode = `function mergeSort(arr, start, end) {
+  if (start >= end) return;
+  const mid = Math.floor((start + end) / 2);
+  mergeSort(arr, start, mid);
+  mergeSort(arr, mid + 1, end);
+  merge(arr, start, mid, end);
+}
+
+function merge(arr, start, mid, end) {
+  const left = arr.slice(start, mid + 1);
+  const right = arr.slice(mid + 1, end + 1);
+  let i = 0, j = 0, k = start;
+  while (i < left.length && j < right.length) {
+    if (left[i] <= right[j]) arr[k++] = left[i++];
+    else arr[k++] = right[j++];
+  }
+  while (i < left.length) arr[k++] = left[i++];
+  while (j < right.length) arr[k++] = right[j++];
 }`;
 
 export async function* mergeSort(
@@ -159,20 +207,20 @@ export async function* mergeSort(
   end: number = input.array.length - 1,
 ): AsyncGenerator<SortStep> {
   const array = input.array;
-  yield { line: 2, range: [start, end] };
+  yield { line: 2, range: [start, end], variables: { start, end } };
   if (start >= end) return;
 
-  yield { line: 3 };
   const mid = Math.floor((start + end) / 2);
+  yield { line: 3, variables: { start, end, mid } };
 
-  yield { line: 4 };
+  yield { line: 4, variables: { start, end, mid } };
   yield* mergeSort(input, start, mid);
 
-  yield { line: 5 };
+  yield { line: 5, variables: { start, end, mid } };
   yield* mergeSort(input, mid + 1, end);
 
-  yield { line: 6 };
-  yield * merge(array, start, mid, end);
+  yield { line: 6, variables: { start, end, mid } };
+  yield* merge(array, start, mid, end);
 }
 
 async function* merge(
@@ -188,25 +236,48 @@ async function* merge(
     k = start;
 
   while (i < left.length && j < right.length) {
-    yield { comparing: [start + i, mid + 1 + j] };
+    yield {
+      line: 13,
+      comparing: [start + i, mid + 1 + j],
+      variables: { i, j, k, leftVal: left[i], rightVal: right[j] },
+    };
     if (left[i] <= right[j]) {
       arr[k] = left[i++];
+      yield {
+        line: 14,
+        array: [...arr],
+        variables: { i, j, k, leftVal: left[i - 1] },
+      };
     } else {
       arr[k] = right[j++];
+      yield {
+        line: 15,
+        array: [...arr],
+        variables: { i, j, k, rightVal: right[j - 1] },
+      };
     }
-    yield { array: [...arr] };
     k++;
   }
 
   while (i < left.length) {
     arr[k] = left[i++];
-    yield { array: [...arr], comparing: [k] };
+    yield {
+      line: 17,
+      array: [...arr],
+      comparing: [k],
+      variables: { i, j, k },
+    };
     k++;
   }
 
   while (j < right.length) {
     arr[k] = right[j++];
-    yield { array: [...arr], comparing: [k] };
+    yield {
+      line: 18,
+      array: [...arr],
+      comparing: [k],
+      variables: { i, j, k },
+    };
     k++;
   }
 }
@@ -224,25 +295,49 @@ export const selectionSortTraceCode = `function selectionSort(arr) {
   }
 }`;
 
-export async function* selectionSort(input: SortInput): AsyncGenerator<SortStep> {
+export async function* selectionSort(
+  input: SortInput,
+): AsyncGenerator<SortStep> {
   const array = input.array;
   const n = array.length;
   for (let i = 0; i < n; i++) {
-    yield { line: 2, pivot: i };
+    yield { line: 2, pivot: i, variables: { i, n } };
     let minIdx = i;
 
     for (let j = i + 1; j < n; j++) {
-      yield { line: 4, comparing: [j, minIdx], pivot: i };
+      yield {
+        line: 4,
+        comparing: [j, minIdx],
+        pivot: i,
+        variables: { i, j, minIdx },
+      };
+
       if (array[j] < array[minIdx]) {
+        yield {
+          line: 5,
+          comparing: [j, minIdx],
+          pivot: i,
+          variables: { i, j, minIdx },
+        };
         minIdx = j;
-        yield { line: 5, comparing: [j], pivot: i };
+        yield {
+          line: 6,
+          comparing: [j],
+          pivot: i,
+          variables: { i, j, minIdx },
+        };
       }
     }
 
     if (minIdx !== i) {
-      yield { line: 8, comparing: [i, minIdx] };
+      yield { line: 9, comparing: [i, minIdx], variables: { i, minIdx } };
       [array[i], array[minIdx]] = [array[minIdx], array[i]];
-      yield { line: 8, array: [...array], comparing: [i, minIdx] };
+      yield {
+        line: 9,
+        array: [...array],
+        comparing: [i, minIdx],
+        variables: { i, minIdx },
+      };
     }
   }
 }
@@ -260,43 +355,72 @@ export const insertionSortTraceCode = `function insertionSort(arr) {
   }
 }`;
 
-export async function* insertionSort(input: SortInput): AsyncGenerator<SortStep> {
+export async function* insertionSort(
+  input: SortInput,
+): AsyncGenerator<SortStep> {
   const array = input.array;
   const n = array.length;
   for (let i = 1; i < n; i++) {
-    yield { line: 2, pivot: i };
+    yield { line: 2, pivot: i, variables: { i, n } };
     const key = array[i];
     let j = i - 1;
-
-    // Visualize "lifting" the key
-    yield { line: 3, comparing: [i], pivot: i };
+    yield {
+      line: 3,
+      comparing: [i],
+      pivot: i,
+      variables: { i, j, key },
+    };
 
     while (j >= 0) {
-      yield { line: 5, comparing: [j], pivot: i };
+      yield {
+        line: 5,
+        comparing: [j],
+        pivot: i,
+        variables: { i, j, key },
+      };
       if (array[j] > key) {
         array[j + 1] = array[j];
-        yield { line: 6, array: [...array], comparing: [j, j + 1] };
+        yield {
+          line: 6,
+          array: [...array],
+          comparing: [j, j + 1],
+          variables: { i, j, key },
+        };
         j--;
       } else {
         break;
       }
     }
     array[j + 1] = key;
-    yield { line: 9, array: [...array], pivot: j + 1 };
+    yield {
+      line: 9,
+      array: [...array],
+      pivot: j + 1,
+      variables: { i, j: j + 1, key },
+    };
   }
 }
 
 // --- HEAP SORT ---
 export const heapSortTraceCode = `function heapSort(arr) {
   const n = arr.length;
-  // Build max heap
   for (let i = n / 2 - 1; i >= 0; i--) 
     heapify(arr, n, i);
   
-  // Extract elements
   for (let i = n - 1; i > 0; i--) {
     swap(arr, 0, i);
     heapify(arr, i, 0);
+  }
+}
+
+function heapify(arr, n, i) {
+  let largest = i;
+  let left = 2 * i + 1, right = 2 * i + 2;
+  if (left < n && arr[left] > arr[largest]) largest = left;
+  if (right < n && arr[right] > arr[largest]) largest = right;
+  if (largest !== i) {
+    swap(arr, i, largest);
+    heapify(arr, n, largest);
   }
 }`;
 
@@ -304,20 +428,23 @@ export async function* heapSort(input: SortInput): AsyncGenerator<SortStep> {
   const array = input.array;
   const n = array.length;
 
-  // Build max heap
-  yield { line: 4 };
+  yield { line: 3, variables: { n } };
   for (let i = Math.floor(n / 2) - 1; i >= 0; i--) {
     yield* heapify(array, n, i);
   }
 
-  // Extract elements
-  yield { line: 7 };
+  yield { line: 6, variables: { n } };
   for (let i = n - 1; i > 0; i--) {
-    yield { line: 8, comparing: [0, i] };
+    yield { line: 7, comparing: [0, i], variables: { i, n } };
     [array[0], array[i]] = [array[i], array[0]];
-    yield { line: 9, array: [...array], comparing: [0, i] };
+    yield {
+      line: 7,
+      array: [...array],
+      comparing: [0, i],
+      variables: { i, n },
+    };
 
-    yield { line: 10 };
+    yield { line: 8, variables: { i, n } };
     yield* heapify(array, i, 0);
   }
 }
@@ -330,24 +457,44 @@ async function* heapify(
   let largest = i;
   const left = 2 * i + 1;
   const right = 2 * i + 2;
+  yield {
+    line: 12,
+    variables: { i, n, largest, left, right },
+  };
 
   if (left < n) {
-    yield { comparing: [left, largest] };
+    yield {
+      line: 14,
+      comparing: [left, largest],
+      variables: { i, n, largest, left },
+    };
     if (arr[left] > arr[largest]) {
       largest = left;
     }
   }
 
   if (right < n) {
-    yield { comparing: [right, largest] };
+    yield {
+      line: 15,
+      comparing: [right, largest],
+      variables: { i, n, largest, right },
+    };
     if (arr[right] > arr[largest]) {
       largest = right;
     }
   }
 
   if (largest !== i) {
+    yield { line: 16, variables: { i, n, largest } };
     [arr[i], arr[largest]] = [arr[largest], arr[i]];
-    yield { array: [...arr], comparing: [i, largest] };
+    yield {
+      line: 17,
+      array: [...arr],
+      comparing: [i, largest],
+      variables: { i, n, largest },
+    };
+
+    yield { line: 18, variables: { i, n, largest } };
     yield* heapify(arr, n, largest);
   }
 }
@@ -369,24 +516,42 @@ export async function* shellSort(input: SortInput): AsyncGenerator<SortStep> {
   const array = input.array;
   const n = array.length;
   for (let gap = Math.floor(n / 2); gap > 0; gap = Math.floor(gap / 2)) {
-    yield { line: 2, pivot: gap };
+    yield { line: 2, pivot: gap, variables: { gap, n } };
     for (let i = gap; i < n; i++) {
       const temp = array[i];
       let j = i;
-      yield { line: 4, comparing: [i], pivot: gap };
+      yield {
+        line: 4,
+        comparing: [i],
+        pivot: gap,
+        variables: { gap, i, temp },
+      };
 
       while (j >= gap) {
-        yield { line: 6, comparing: [j - gap, j] };
+        yield {
+          line: 6,
+          comparing: [j - gap, j],
+          variables: { gap, i, j, temp },
+        };
         if (array[j - gap] > temp) {
           array[j] = array[j - gap];
-          yield { line: 7, array: [...array], comparing: [j, j - gap] };
+          yield {
+            line: 7,
+            array: [...array],
+            comparing: [j, j - gap],
+            variables: { gap, i, j, temp },
+          };
           j -= gap;
         } else {
           break;
         }
       }
       array[j] = temp;
-      yield { line: 8, array: [...array] };
+      yield {
+        line: 8,
+        array: [...array],
+        variables: { gap, i, j, temp },
+      };
     }
   }
 }
@@ -397,41 +562,69 @@ export const cocktailSortTraceCode = `function cocktailSort(arr) {
   while (swapped) {
     swapped = false;
     for (let i = 0; i < n - 1; i++) {
-      if (arr[i] > arr[i+1]) { swap(i, i+1); swapped = true; }
+      if (arr[i] > arr[i+1]) { 
+        swap(i, i+1); swapped = true; 
+      }
     }
     if (!swapped) break;
     swapped = false;
     for (let i = n - 2; i >= 0; i--) {
-      if (arr[i] > arr[i+1]) { swap(i, i+1); swapped = true; }
+      if (arr[i] > arr[i+1]) { 
+        swap(i, i+1); swapped = true; 
+      }
     }
   }
 }`;
 
-export async function* cocktailSort(input: SortInput): AsyncGenerator<SortStep> {
+export async function* cocktailSort(
+  input: SortInput,
+): AsyncGenerator<SortStep> {
   const array = input.array;
   let swapped = true;
   let start = 0;
   let end = array.length - 1;
 
   while (swapped) {
+    yield { line: 3, variables: { swapped, start, end } };
     swapped = false;
     for (let i = start; i < end; i++) {
-      yield { line: 6, comparing: [i, i + 1] };
+      yield {
+        line: 6,
+        comparing: [i, i + 1],
+        variables: { swapped, start, end, i },
+      };
       if (array[i] > array[i + 1]) {
         [array[i], array[i + 1]] = [array[i + 1], array[i]];
         swapped = true;
-        yield { line: 7, array: [...array], comparing: [i, i + 1] };
+        yield {
+          line: 7,
+          array: [...array],
+          comparing: [i, i + 1],
+          variables: { swapped, start, end, i },
+        };
       }
     }
-    if (!swapped) break;
+    if (!swapped) {
+      yield { line: 9, variables: { swapped } };
+      break;
+    }
     swapped = false;
     end--;
     for (let i = end - 1; i >= start; i--) {
-      yield { line: 11, comparing: [i, i + 1] };
+      yield {
+        line: 12,
+        comparing: [i, i + 1],
+        variables: { swapped, start, end, i },
+      };
       if (array[i] > array[i + 1]) {
         [array[i], array[i + 1]] = [array[i + 1], array[i]];
         swapped = true;
-        yield { line: 12, array: [...array], comparing: [i, i + 1] };
+        yield {
+          line: 13,
+          array: [...array],
+          comparing: [i, i + 1],
+          variables: { swapped, start, end, i },
+        };
       }
     }
     start++;
@@ -442,8 +635,12 @@ export async function* cocktailSort(input: SortInput): AsyncGenerator<SortStep> 
 export const gnomeSortTraceCode = `function gnomeSort(arr) {
   let index = 0;
   while (index < n) {
-    if (index == 0 || arr[index] >= arr[index-1]) index++;
-    else { swap(index, index-1); index--; }
+    if (index == 0 || arr[index] >= arr[index-1]) {
+        index++;
+    } else { 
+        swap(index, index-1); 
+        index--; 
+    }
   }
 }`;
 
@@ -452,16 +649,27 @@ export async function* gnomeSort(input: SortInput): AsyncGenerator<SortStep> {
   let index = 0;
   const n = array.length;
   while (index < n) {
+    yield { line: 3, variables: { index, n } };
     if (index === 0) {
       index++;
-    }
-    yield { line: 4, comparing: [index, index - 1] };
-    if (array[index] >= array[index - 1]) {
-      index++;
     } else {
-      [array[index], array[index - 1]] = [array[index - 1], array[index]];
-      yield { line: 5, array: [...array], comparing: [index, index - 1] };
-      index--;
+      yield {
+        line: 4,
+        comparing: [index, index - 1],
+        variables: { index, n },
+      };
+      if (array[index] >= array[index - 1]) {
+        index++;
+      } else {
+        [array[index], array[index - 1]] = [array[index - 1], array[index]];
+        yield {
+          line: 7,
+          array: [...array],
+          comparing: [index, index - 1],
+          variables: { index, n },
+        };
+        index--;
+      }
     }
   }
 }
@@ -474,10 +682,8 @@ export const combSortTraceCode = `function combSort(arr) {
 
   while (!sorted) {
     gap = Math.floor(gap / shrink);
-    if (gap <= 1) {
-      gap = 1;
-      sorted = true;
-    }
+    if (gap <= 1) { gap = 1; sorted = true; }
+    
     for (let i = 0; i + gap < arr.length; i++) {
       if (arr[i] > arr[i + gap]) {
         swap(arr, i, i + gap);
@@ -494,17 +700,28 @@ export async function* combSort(input: SortInput): AsyncGenerator<SortStep> {
   let sorted = false;
 
   while (!sorted) {
+    yield { line: 6, variables: { gap, sorted } };
     gap = Math.floor(gap / shrink);
     if (gap <= 1) {
       gap = 1;
       sorted = true;
     }
     for (let i = 0; i + gap < array.length; i++) {
-      yield { comparing: [i, i + gap], pivot: gap };
+      yield {
+        line: 10,
+        comparing: [i, i + gap],
+        pivot: gap,
+        variables: { gap, sorted, i },
+      };
       if (array[i] > array[i + gap]) {
         [array[i], array[i + gap]] = [array[i + gap], array[i]];
         sorted = false;
-        yield { array: [...array], comparing: [i, i + gap] };
+        yield {
+          line: 11,
+          array: [...array],
+          comparing: [i, i + gap],
+          variables: { gap, sorted, i },
+        };
       }
     }
   }
@@ -529,23 +746,42 @@ export const countingSortTraceCode = `function countingSort(arr) {
   }
 }`;
 
-export async function* countingSort(input: SortInput): AsyncGenerator<SortStep> {
+export async function* countingSort(
+  input: SortInput,
+): AsyncGenerator<SortStep> {
   const array = input.array;
   const max = Math.max(...array);
   const min = Math.min(...array);
   const count = new Array(max - min + 1).fill(0);
 
+  yield { line: 2, variables: { max, min } };
+
   for (let i = 0; i < array.length; i++) {
-    yield { comparing: [i] };
+    yield {
+      line: 6,
+      comparing: [i],
+      variables: { i, val: array[i], min },
+    };
     count[array[i] - min]++;
+    yield {
+      line: 7,
+      variables: { i, val: array[i], count: count[array[i] - min] },
+    };
   }
 
   let z = 0;
   for (let i = min; i <= max; i++) {
+    yield { line: 11, variables: { i, z, min, max } };
     while (count[i - min] > 0) {
+      yield { line: 12, variables: { i, z, count: count[i - min] } };
       array[z++] = i;
       count[i - min]--;
-      yield { array: [...array], comparing: [z - 1] };
+      yield {
+        line: 13,
+        array: [...array],
+        comparing: [z - 1],
+        variables: { i, z, count: count[i - min] },
+      };
     }
   }
 }
