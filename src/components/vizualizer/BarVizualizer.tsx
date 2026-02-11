@@ -38,8 +38,9 @@ export const VisualizerBar = ({
   const showText = width >= 24;
 
   return (
-    <motion.div
+<motion.div
       layout
+      data-testid="visualizer-bar"
       className={`
         relative flex flex-col items-center justify-start 
         shrink-0 

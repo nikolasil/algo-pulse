@@ -175,27 +175,6 @@ export const useAlgorithm = (
         // Safely access variables if they exist
         const currentVariables = step.variables || {};
 
-        // Deep copy grid if it exists, otherwise shallow copy array
-        const state: VisualState = {
-          line: step.line ?? 0,
-          array: sSort.array
-            ? [...sSort.array]
-            : arrayRef.current.length > 0
-              ? [...arrayRef.current]
-              : undefined,
-          grid: sPath.grid
-            ? JSON.parse(JSON.stringify(sPath.grid))
-            : gridRef.current.length > 0
-              ? JSON.parse(JSON.stringify(gridRef.current))
-              : undefined,
-          comparing: sSort.comparing || sSearch.comparing || [],
-          found: sSearch.found,
-          variables: currentVariables,
-        };
-
-        historyRef.current.push(state);
-        currentStepIdx.current++;
-
         if (step.line !== undefined) setActiveLine(step.line);
         setVariables(currentVariables);
 
@@ -216,6 +195,28 @@ export const useAlgorithm = (
             if (val !== undefined) onStep(val);
           }
         }
+
+        // CAPTURE STATE FOR HISTORY AFTER UI HAS UPDATED
+        const state: VisualState = {
+          line: step.line ?? 0,
+          array: sSort.array
+            ? [...sSort.array]
+            : arrayRef.current.length > 0
+              ? [...arrayRef.current]
+              : undefined,
+          grid: sPath.grid
+            ? JSON.parse(JSON.stringify(gridRef.current))
+            : gridRef.current.length > 0
+              ? JSON.parse(JSON.stringify(gridRef.current))
+              : undefined,
+          comparing: sSort.comparing || sSearch.comparing || [],
+          found: sSearch.found,
+          variables: currentVariables,
+        };
+
+        historyRef.current.push(state);
+        currentStepIdx.current++;
+
         await sleep();
       }
       if (!stopRef.current) stopSimulation();
@@ -230,8 +231,14 @@ export const useAlgorithm = (
     if (currentStepIdx.current < historyRef.current.length - 1) {
       currentStepIdx.current++;
       const state = historyRef.current[currentStepIdx.current];
-      if (state.array) updateArray(state.array);
-      if (state.grid) updateGrid(state.grid);
+      if (state.array) {
+        arrayRef.current = [...state.array];
+        setArray([...state.array]);
+      }
+      if (state.grid) {
+        gridRef.current = state.grid;
+        setGrid(state.grid);
+      }
       setComparing(state.comparing || []);
       setActiveLine(state.line ?? 0);
       setVariables(state.variables || {});
@@ -281,13 +288,19 @@ export const useAlgorithm = (
     if (currentStepIdx.current > 0) {
       currentStepIdx.current--;
       const state = historyRef.current[currentStepIdx.current];
-      if (state.array) updateArray(state.array);
-      if (state.grid) updateGrid(state.grid);
+      if (state.array) {
+        arrayRef.current = [...state.array];
+        setArray([...state.array]);
+      }
+      if (state.grid) {
+        gridRef.current = state.grid;
+        setGrid(state.grid);
+      }
       setComparing(state.comparing || []);
       setActiveLine(state.line ?? 0);
       setVariables(state.variables || {});
     }
-  }, [updateArray, updateGrid]);
+  }, []);
 
   return {
     array,
