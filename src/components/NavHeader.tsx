@@ -1,6 +1,7 @@
 'use client';
+
 import Link from 'next/link';
-import { ArrowLeft } from 'lucide-react';
+import { ArrowLeft, Zap } from 'lucide-react';
 
 interface NavHeaderProps {
   title: string;
@@ -9,25 +10,33 @@ interface NavHeaderProps {
 
 export function NavHeader({ title, subtitle }: NavHeaderProps) {
   return (
-    <header className="flex flex-col gap-4">
+    <header className="flex flex-col gap-3 pb-4 border-b border-surface-800">
       <Link
         href="/"
-        className="flex items-center gap-2 text-[8px] font-bold text-slate-500 hover:text-cyan-400 transition-colors uppercase tracking-[0.2em] group"
+        className="flex items-center gap-2 text-xs text-surface-500 hover:text-primary-400 transition-colors group w-fit"
+        aria-label="Return to home"
       >
         <ArrowLeft
-          size={12}
+          size={14}
           className="group-hover:-translate-x-1 transition-transform"
         />
-        Return to Nexus
+        <span className="font-medium uppercase tracking-wider">Return to Nexus</span>
       </Link>
 
-      <div>
-        <h1 className="text-1xl font-black bg-linear-to-br from-cyan-400 to-blue-600 bg-clip-text text-transparent italic uppercase">
-          {title}
-        </h1>
-        <p className="text-[8px] font-mono text-slate-500 uppercase tracking-widest mt-1">
-          {subtitle}
-        </p>
+      <div className="flex items-center gap-3">
+        <div className="p-2 rounded-lg bg-primary-500/10 border border-primary-500/20">
+          <Zap size={18} className="text-primary-400" />
+        </div>
+        <div>
+          <h1 className="text-lg font-bold text-surface-100">
+            <span className="bg-gradient-to-r from-primary-400 to-primary-500 bg-clip-text text-transparent">
+              {title}
+            </span>
+          </h1>
+          <p className="text-xs text-surface-500 uppercase tracking-wider">
+            {subtitle}
+          </p>
+        </div>
       </div>
     </header>
   );

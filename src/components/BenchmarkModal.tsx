@@ -1,13 +1,16 @@
 'use client';
+
 import { useMemo } from 'react';
+import { motion } from 'framer-motion';
+import { X, RotateCcw, Trophy, TrendingUp } from 'lucide-react';
 
 export interface RawBenchmarkData {
   name: string;
   time: number;
   complexity: string;
   success?: boolean;
-  size?: number; // Elements/Array Size
-  pathLength?: number; // Only present for Pathfinding
+  size?: number;
+  pathLength?: number;
 }
 
 interface BenchmarkModalProps {
@@ -43,103 +46,140 @@ export function BenchmarkModal({
   const isSearch =
     !isGrid && data.some((item) => typeof item.success === 'boolean');
 
-  // Determine Title
   const modeTitle = isGrid ? 'Pathfinding' : isSearch ? 'Searching' : 'Sorting';
 
   return (
     <div className="fixed inset-0 z-200 flex items-center justify-center p-4">
-      <div
-        className="absolute inset-0 bg-slate-950/90 backdrop-blur-md animate-in fade-in duration-300"
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0 }}
+        className="absolute inset-0 bg-surface-950/90 backdrop-blur-md"
         onClick={onClose}
       />
-      <div className="relative bg-slate-900 border border-slate-700 w-full max-w-4xl max-h-[90vh] sm:rounded-3xl shadow-2xl overflow-hidden flex flex-col animate-in zoom-in-95 duration-300">
-        <div className="px-6 py-4 border-b border-slate-800 flex justify-between items-center bg-slate-900/50">
-          <h3 className="text-lg font-bold text-white tracking-tight flex items-center gap-3">
-            <span className="text-cyan-500">⚡</span> {modeTitle} Diagnostic
-          </h3>
+      <motion.div
+        initial={{ scale: 0.95, opacity: 0 }}
+        animate={{ scale: 1, opacity: 1 }}
+        exit={{ scale: 0.95, opacity: 0 }}
+        className="relative bg-surface-900 border border-surface-700 w-full max-w-2xl max-h-[85vh] rounded-2xl shadow-2xl overflow-hidden flex flex-col animate-scale-in"
+      >
+        {/* Header */}
+        <div className="px-6 py-4 border-b border-surface-800 flex items-center justify-between bg-surface-900/50">
+          <div className="flex items-center gap-3">
+            <div className="p-2 rounded-lg bg-primary-500/10">
+              <Trophy size={20} className="text-primary-400" />
+            </div>
+            <div>
+              <h3 className="text-lg font-bold text-surface-100">
+                {modeTitle} Diagnostic
+              </h3>
+              <p className="text-xs text-surface-500">
+                Performance comparison results
+              </p>
+            </div>
+          </div>
           <button
             onClick={onClose}
-            className="text-slate-500 hover:text-white transition-colors"
+            className="p-2 rounded-lg hover:bg-surface-800 transition-colors touch-target"
+            aria-label="Close modal"
           >
-            ✕
+            <X size={18} className="text-surface-400" />
           </button>
         </div>
 
+        {/* Content */}
         <div className="flex-1 overflow-y-auto p-6">
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-start">
-            {/* Left: Efficiency Chart */}
-            <div className="space-y-6">
-              <div className="flex justify-between items-end border-b border-slate-800 pb-2">
-                <h4 className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">
-                  Efficiency Chart
-                </h4>
-                <span className="text-[9px] text-slate-600 font-mono">ms</span>
-              </div>
-              <div className="space-y-6 pt-2">
-                {results.map((res) => (
-                  <div key={res.name} className="space-y-3">
-                    <div className="flex justify-between text-[10px] font-bold uppercase tracking-tighter">
-                      <span
-                        className={
-                          res.isFastest ? 'text-cyan-400' : 'text-slate-400'
-                        }
-                      >
-                        {res.name}
-                      </span>
-                      <span className="text-slate-500">{res.time}ms</span>
-                    </div>
-                    <div className="h-1.5 w-full bg-slate-800 rounded-full overflow-hidden">
-                      <div
-                        className={`h-full transition-all duration-1000 ease-out rounded-full ${res.isFastest ? 'bg-cyan-500 shadow-[0_0_8px_rgba(6,182,212,0.4)]' : 'bg-slate-600'}`}
-                        style={{
-                          width: `${Math.max(5, (res.time / maxTime) * 100)}%`,
-                        }}
-                      />
-                    </div>
-                  </div>
-                ))}
-              </div>
+          {/* Efficiency Chart */}
+          <div className="mb-6">
+            <div className="flex items-center gap-2 mb-4">
+              <TrendingUp size={16} className="text-primary-400" />
+              <h4 className="text-sm font-bold text-surface-200 uppercase tracking-wide">
+                Efficiency Chart
+              </h4>
             </div>
-
-            {/* Right: Engine Data */}
             <div className="space-y-3">
-              <div className="flex justify-between items-end border-b border-slate-800 pb-2 mb-4">
-                <h4 className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">
-                  Engine Data
-                </h4>
-              </div>
+              {results.map((res) => (
+                <div key={res.name} className="space-y-1">
+                  <div className="flex items-center justify-between">
+                    <span
+                      className={`text-sm font-medium ${
+                        res.isFastest ? 'text-primary-400' : 'text-surface-300'
+                      }`}
+                    >
+                      {res.name}
+                    </span>
+                    <span className="text-xs font-mono text-surface-500">
+                      {res.time}ms
+                    </span>
+                  </div>
+                  <div className="h-2 w-full bg-surface-800 rounded-full overflow-hidden">
+                    <motion.div
+                      initial={{ width: 0 }}
+                      animate={{ width: `${Math.max(5, (res.time / maxTime) * 100)}%` }}
+                      transition={{ duration: 0.5, ease: 'easeOut' }}
+                      className={`h-full rounded-full transition-all ${
+                        res.isFastest
+                          ? 'bg-primary-500 shadow-lg shadow-primary-500/30'
+                          : 'bg-surface-600'
+                      }`}
+                    />
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Results Table */}
+          <div>
+            <h4 className="text-sm font-bold text-surface-200 uppercase tracking-wide mb-3">
+              Engine Data
+            </h4>
+            <div className="space-y-2">
               {results.map((res) => (
                 <div
                   key={res.name}
-                  className={`flex items-center justify-between p-3 rounded-xl border transition-all ${res.isFastest ? 'bg-cyan-500/10 border-cyan-500/30' : 'bg-slate-800/40 border-slate-700/50'}`}
+                  className={`flex items-center justify-between p-3 rounded-lg border transition-all ${
+                    res.isFastest
+                      ? 'bg-primary-500/5 border-primary-500/30'
+                      : 'bg-surface-800/30 border-surface-700/50'
+                  }`}
                 >
                   <div className="flex items-center gap-3">
                     <div
-                      className={`w-8 h-8 rounded-lg flex items-center justify-center font-bold text-[10px] ${res.isFastest ? 'bg-cyan-500 text-slate-950' : 'bg-slate-700 text-slate-500'}`}
+                      className={`w-8 h-8 rounded-lg flex items-center justify-center font-bold text-sm ${
+                        res.isFastest
+                          ? 'bg-primary-500 text-surface-950'
+                          : 'bg-surface-700 text-surface-400'
+                      }`}
                     >
                       {res.name[0]}
                     </div>
                     <div>
-                      <h4 className="text-xs font-bold text-slate-200">
+                      <h5 className="text-sm font-medium text-surface-200">
                         {res.name}
-                      </h4>
-                      <div className="flex items-center gap-1.5">
+                      </h5>
+                      <div className="flex items-center gap-2 mt-0.5">
                         <span
-                          className={`text-[8px] font-bold px-1 py-0.5 rounded ${res.isFastest ? 'bg-cyan-500/20 text-cyan-400' : 'bg-slate-700 text-slate-500'}`}
+                          className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${
+                            res.isFastest
+                              ? 'bg-primary-500/20 text-primary-400'
+                              : 'bg-surface-700 text-surface-500'
+                          }`}
                         >
                           {res.delta}
                         </span>
-
-                        {/* Data Size Display */}
-                        <span className="text-[7px] text-slate-400 font-mono uppercase">
+                        <span className="text-[10px] text-surface-500 font-mono uppercase">
                           {isGrid
-                            ? `Visited: ${res.size ?? 0} | Path: ${res.pathLength ?? 0}`
+                            ? `Visited: ${res.size ?? 0}`
                             : `Size: ${res.size ?? 0}`}
                         </span>
-
                         {(isGrid || isSearch) && (
                           <span
-                            className={`text-[7px] font-bold px-1 rounded ${res.success ? 'text-emerald-500 bg-emerald-500/10' : 'text-rose-500 bg-rose-500/10'}`}
+                            className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${
+                              res.success
+                                ? 'bg-success-500/10 text-success-400'
+                                : 'bg-error-500/10 text-error-400'
+                            }`}
                           >
                             {res.success ? 'FOUND' : 'MISS'}
                           </span>
@@ -149,11 +189,13 @@ export function BenchmarkModal({
                   </div>
                   <div className="text-right">
                     <div
-                      className={`text-sm font-mono font-bold ${res.isFastest ? 'text-cyan-400' : 'text-slate-300'}`}
+                      className={`text-base font-mono font-bold ${
+                        res.isFastest ? 'text-primary-400' : 'text-surface-300'
+                      }`}
                     >
                       {res.time}ms
                     </div>
-                    <div className="text-[8px] text-slate-500 font-mono uppercase">
+                    <div className="text-[10px] text-surface-500 font-mono uppercase">
                       {res.complexity}
                     </div>
                   </div>
@@ -163,21 +205,24 @@ export function BenchmarkModal({
           </div>
         </div>
 
-        <div className="px-6 py-4 bg-slate-950/50 border-t border-slate-800 flex gap-3">
+        {/* Footer */}
+        <div className="px-6 py-4 border-t border-surface-800 flex gap-3 bg-surface-950/50">
           <button
             onClick={onClose}
-            className="flex-1 py-3 bg-slate-800 hover:bg-slate-700 text-white font-bold rounded-xl transition-all uppercase text-[9px] tracking-widest"
+            className="flex-1 flex items-center justify-center gap-2 py-3 rounded-lg bg-surface-800 hover:bg-surface-700 text-surface-200 transition-colors touch-target"
           >
-            Dismiss
+            <X size={16} />
+            <span className="text-sm font-medium uppercase">Dismiss</span>
           </button>
           <button
             onClick={onReRun}
-            className="flex-1 py-3 bg-cyan-600 hover:bg-cyan-500 text-slate-950 font-bold rounded-xl transition-all uppercase text-[9px] tracking-widest shadow-lg shadow-cyan-900/20"
+            className="flex-1 flex items-center justify-center gap-2 py-3 rounded-lg bg-primary-600 hover:bg-primary-500 text-surface-950 transition-colors touch-target"
           >
-            Re-Run Analysis
+            <RotateCcw size={16} />
+            <span className="text-sm font-bold uppercase">Re-Run</span>
           </button>
         </div>
-      </div>
+      </motion.div>
     </div>
   );
 }

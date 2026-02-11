@@ -1,20 +1,19 @@
 'use client';
 
 import { useState, useEffect, useCallback, useRef } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { useAlgorithm } from '@/hooks/useAlgorithm';
 import {
   PathfindingAlgoData,
   usePathfindingLogic,
 } from '@/hooks/usePathfindingLogic';
-
-// Components
 import { CodeViewer } from '@/components/CodeViewer';
 import { ControlPanel } from '@/components/ControlPanel';
+import { LayoutWrapper } from '@/components/LayoutWrapper';
 import { NavHeader } from '@/components/NavHeader';
 import { GridVisualizer } from '@/components/vizualizer/GridVisualizer';
-import { StatCard } from '@/components/StatCard';
+import { StatCard, StatDashboard } from '@/components/StatCard';
 import { LogItem, TelemetryLog } from '@/components/TelemetryLog';
-import { ExpandableSidebar } from '@/components/ExpandableSidebar';
 import { BenchmarkModal, RawBenchmarkData } from '@/components/BenchmarkModal';
 import {
   createPathfindingNode,
@@ -28,15 +27,19 @@ import {
 } from '@/hooks/algorithms/pathfindingAlgorithms';
 import { AllStepTypes } from '@/hooks/algorithms/general';
 import { SelectionAlgorithm } from '@/components/SelectionAlgorithm';
+import { Menu, X, Zap, BarChart2, Code, Activity } from 'lucide-react';
+
+type MobileTab = 'controls' | 'code' | 'stats' | 'history';
 
 export default function GridPage() {
-  const [dimensions, setDimensions] = useState({ rows: 15, cols: 30 });
+  const [dimensions, setDimensions] = useState({ rows: 12, cols: 20 });
   const [grid, setGrid] = useState<PathfindingNode[][]>([]);
   const [isMousePressed, setIsMousePressed] = useState(false);
   const [showBenchmarkModal, setShowBenchmarkModal] = useState(false);
   const [executionTime, setExecutionTime] = useState(0);
   const [nodesExplored, setNodesExplored] = useState(0);
-  const [isMobileView, setIsMobileView] = useState(false); // Track mobile state globally in component
+  const [activeTab, setActiveTab] = useState<MobileTab>('controls');
+  const [isMobileSheetOpen, setIsMobileSheetOpen] = useState(false);
 
   const activeGenRef = useRef<AsyncGenerator<AllStepTypes> | null>(null);
   const abortBenchmarkRef = useRef(false);
@@ -79,11 +82,12 @@ export default function GridPage() {
     col: dimensions.cols - 2,
   };
 
-  useEffect(() => {
-    const width = window.innerWidth;
-    const mobile = width < 768;
-    setIsMobileView(mobile);
-  }, []);
+  const stopTimer = () => {
+    if (timerIntervalRef.current) {
+      clearInterval(timerIntervalRef.current);
+      timerIntervalRef.current = null;
+    }
+  };
 
   const startTimer = () => {
     stopTimer();
@@ -92,13 +96,6 @@ export default function GridPage() {
       () => setExecutionTime(Date.now() - startTime),
       10,
     );
-  };
-
-  const stopTimer = () => {
-    if (timerIntervalRef.current) {
-      clearInterval(timerIntervalRef.current);
-      timerIntervalRef.current = null;
-    }
   };
 
   const handleStopAll = useCallback(() => {
@@ -123,12 +120,10 @@ export default function GridPage() {
     [handleStopAll],
   );
 
-  function algorithmHasHeuristic(algorithm: string) {
-    return (
-      pathfindingAlgorithmsWithHeuristic.find((i) => i === algorithm) !==
-      undefined
-    );
+  function algorithmHasHeuristic(algo: string) {
+    return pathfindingAlgorithmsWithHeuristic.includes(algo as typeof pathfindingAlgorithmsWithHeuristic[number]);
   }
+
   useEffect(() => {
     initGrid(dimensions.rows, dimensions.cols);
   }, [initGrid, dimensions]);
@@ -147,11 +142,8 @@ export default function GridPage() {
 
   const handleNodeInteraction = (r: number, c: number) => {
     if (!isPaused || isBenchmarking) return;
-    if (
-      (r === startPos.row && c === startPos.col) ||
-      (r === endPos.row && c === endPos.col)
-    )
-      return;
+    if (r === startPos.row && c === startPos.col) return;
+    if (r === endPos.row && c === endPos.col) return;
 
     const newGrid = [...grid];
     const node = newGrid[r][c];
@@ -180,8 +172,7 @@ export default function GridPage() {
     );
 
     const stack: [number, number][] = [];
-    const startR = 1,
-      startC = 1;
+    const startR = 1, startC = 1;
     newGrid[startR][startC].isWall = false;
     stack.push([startR, startC]);
 
@@ -189,28 +180,15 @@ export default function GridPage() {
       const [r, c] = stack[stack.length - 1];
       const neighbors: [number, number, number, number][] = [];
 
-      [
-        [0, 2],
-        [0, -2],
-        [2, 0],
-        [-2, 0],
-      ].forEach(([dr, dc]) => {
-        const nr = r + dr,
-          nc = c + dc;
-        if (
-          nr > 0 &&
-          nr < dimensions.rows - 1 &&
-          nc > 0 &&
-          nc < dimensions.cols - 1 &&
-          newGrid[nr][nc].isWall
-        ) {
+      [[0, 2], [0, -2], [2, 0], [-2, 0]].forEach(([dr, dc]) => {
+        const nr = r + dr, nc = c + dc;
+        if (nr > 0 && nr < dimensions.rows - 1 && nc > 0 && nc < dimensions.cols - 1 && newGrid[nr][nc].isWall) {
           neighbors.push([nr, nc, r + dr / 2, c + dc / 2]);
         }
       });
 
       if (neighbors.length > 0) {
-        const [nr, nc, mr, mc] =
-          neighbors[Math.floor(Math.random() * neighbors.length)];
+        const [nr, nc, mr, mc] = neighbors[Math.floor(Math.random() * neighbors.length)];
         newGrid[nr][nc].isWall = false;
         newGrid[mr][mc].isWall = false;
         stack.push([nr, nc]);
@@ -224,10 +202,7 @@ export default function GridPage() {
     setGrid(newGrid);
   };
 
-  const handleExecute = async (
-    mode: PathfindingAlgorithmType = algorithm,
-    autoRun = true,
-  ) => {
+  const handleExecute = async (mode: PathfindingAlgorithmType = algorithm, autoRun = true) => {
     if (activeGenRef.current && autoRun && isPaused) {
       startTimer();
       await runSimulation(activeGenRef.current);
@@ -245,11 +220,7 @@ export default function GridPage() {
     const endNode = workGrid[endPos.row][endPos.col];
 
     const algorithmInstance = algorithmHasHeuristic(algorithm)
-      ? (
-          algoData as PathfindingAlgoData<{
-            heuristic: PathfindingHeuristicType;
-          }>
-        ).gen({
+      ? (algoData as PathfindingAlgoData<{ heuristic: PathfindingHeuristicType }>).gen({
           grid: workGrid,
           startNode,
           endNode,
@@ -307,9 +278,7 @@ export default function GridPage() {
 
     for (const algo of pathfindingAlgorithms) {
       if (abortBenchmarkRef.current) break;
-      const variants = algorithmHasHeuristic(algo)
-        ? pathfindingHeuristics
-        : [null];
+      const variants = algorithmHasHeuristic(algo) ? pathfindingHeuristics : [null];
       for (const hVariant of variants) {
         if (abortBenchmarkRef.current) break;
         setAlgorithm(algo);
@@ -321,18 +290,11 @@ export default function GridPage() {
         const workGrid = getPreparedGrid();
         const startNode = workGrid[startPos.row][startPos.col];
         const endNode = workGrid[endPos.row][endPos.col];
-
-        // 1. Get the full data object so we can narrow it
         const algoData = getAlgoData(algo);
         const { complexity } = algoData;
 
-        // 2. Narrow and call using the single-object input pattern
         const it = hVariant
-          ? (
-              algoData as PathfindingAlgoData<{
-                heuristic: PathfindingHeuristicType;
-              }>
-            ).gen({
+          ? (algoData as PathfindingAlgoData<{ heuristic: PathfindingHeuristicType }>).gen({
               grid: workGrid,
               startNode,
               endNode,
@@ -342,7 +304,7 @@ export default function GridPage() {
               grid: workGrid,
               startNode,
               endNode,
-              options: {}, // Provide empty options to satisfy the interface
+              options: {},
             });
 
         let wasSuccessful = false;
@@ -401,97 +363,211 @@ export default function GridPage() {
     setIsBenchmarking(false);
   };
 
-  return (
-    <main className="flex flex-col lg:flex-row min-h-screen bg-slate-950 text-slate-100 overflow-x-hidden">
-      <ExpandableSidebar>
-        <NavHeader title="Pathfinding Pulse" subtitle="Diagnostic Engine" />
-        <section className="space-y-4 pb-20 lg:pb-0">
-          <div className="space-y-4">
-            <SelectionAlgorithm
-              algorithm={algorithm}
-              setAlgorithm={setAlgorithm}
-              algorithmOptions={pathfindingAlgorithms}
-              hasGenerator={hasGenerator}
-              isBenchmarking={isBenchmarking}
-            />
-            {algorithmHasHeuristic(algorithm) && (
-              <div className="pt-2 border-t border-slate-800">
-                <h2 className="text-[10px] font-bold text-slate-400 tracking-widest uppercase mb-2">
-                  Heuristic
-                </h2>
-                <div className="flex gap-1">
-                  {pathfindingHeuristics.map((h: PathfindingHeuristicType) => (
-                    <button
-                      key={h}
-                      onClick={() => {
-                        handleStopAll();
-                        setHeuristic(h);
-                      }}
-                      className={`px-2 py-1 rounded text-[9px] font-bold transition-all ${heuristic === h ? 'bg-purple-600 text-white' : 'bg-slate-800 text-slate-500'}`}
-                    >
-                      {h}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            )}
-          </div>
-          <div>
-            <CodeViewer data={getAlgoData(algorithm)} activeLine={activeLine} variables={variables} />
-          </div>
-          <TelemetryLog history={history} />
-        </section>
-      </ExpandableSidebar>
-
-      <section className="flex-1 p-3 sm:p-6 flex flex-col gap-4 sm:gap-6 overflow-y-auto">
-        <ControlPanel
-          size={dimensions.cols}
-          sizeShower={true}
-          speed={speed}
-          isPaused={isPaused}
+  const sidebarContent = (
+    <div className="flex flex-col h-full">
+      <NavHeader title="Pathfinding Pulse" subtitle="Diagnostic Engine" />
+      <div className="flex-1 overflow-y-auto space-y-4 pb-20">
+        <SelectionAlgorithm
+          algorithm={algorithm}
+          setAlgorithm={setAlgorithm}
+          algorithmOptions={pathfindingAlgorithms}
           hasGenerator={hasGenerator}
-          viewMode="Grid"
-          brush={brush}
-          onBrushChange={setBrush}
-          onSpeedChange={setSpeed}
-          onSizeChange={(val) => {
-            if (isMobileView) {
-              setDimensions({
-                rows: val | 1,
-                cols: Math.floor(val / 2) | 1,
-              });
-            } else {
-              setDimensions({
-                rows: Math.floor(val / 2) | 1,
-                cols: val | 1,
-              });
-            }
-          }}
-          onExecute={() => handleExecute(algorithm, true)}
-          onStop={handleStopAll}
-          onTogglePause={() => {
-            if (isPaused && activeGenRef.current) {
-              startTimer();
-              runSimulation(activeGenRef.current);
-            } else {
-              togglePause();
-              stopTimer();
-            }
-          }}
-          onShuffle={() => initGrid(dimensions.rows, dimensions.cols)}
-          onStepBack={stepBackward}
-          onStepForward={stepForward}
-          onStartStepByStep={() => handleExecute(algorithm, false)}
-          onGenerate={() => initGrid(dimensions.rows, dimensions.cols)}
-          onGenerateMaze={handleGenerateMaze}
           isBenchmarking={isBenchmarking}
-          onGeneratePattern={() => {}}
-          onManualUpdate={() => {}}
-          onQuickBenchmark={() => runFullBenchmark(false)}
-          onVisualRun={() => runFullBenchmark(true)}
         />
+        {algorithmHasHeuristic(algorithm) && (
+          <div className="pt-2 border-t border-surface-800">
+            <h2 className="text-xs font-medium text-surface-400 uppercase tracking-wide mb-2">
+              Heuristic
+            </h2>
+            <div className="flex flex-wrap gap-1">
+              {pathfindingHeuristics.map((h: PathfindingHeuristicType) => (
+                <button
+                  key={h}
+                  onClick={() => {
+                    handleStopAll();
+                    setHeuristic(h);
+                  }}
+                  className={`px-3 py-1.5 rounded text-xs font-medium transition-colors ${
+                    heuristic === h
+                      ? 'bg-primary-500/20 text-primary-400'
+                      : 'bg-surface-800 text-surface-400 hover:bg-surface-700'
+                  }`}
+                >
+                  {h}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+        <div className="hidden lg:block">
+          <CodeViewer
+            data={getAlgoData(algorithm)}
+            activeLine={activeLine}
+            variables={variables}
+          />
+        </div>
+        <div className="hidden lg:block">
+          <TelemetryLog history={history} />
+        </div>
+      </div>
+    </div>
+  );
 
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-2 sm:gap-4">
+  const mainContent = (
+    <div className="flex flex-col h-full overflow-hidden">
+      {/* Mobile Tab Bar */}
+      <div className="lg:hidden flex items-center gap-1 p-2 bg-surface-900 border-b border-surface-800 overflow-x-auto">
+        {[
+          { id: 'controls', icon: Zap, label: 'Controls' },
+          { id: 'code', icon: Code, label: 'Code' },
+          { id: 'stats', icon: Activity, label: 'Stats' },
+          { id: 'history', icon: BarChart2, label: 'History' },
+        ].map((tab) => (
+          <button
+            key={tab.id}
+            onClick={() => setActiveTab(tab.id as MobileTab)}
+            className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium whitespace-nowrap transition-colors ${
+              activeTab === tab.id
+                ? 'bg-primary-500/20 text-primary-400'
+                : 'text-surface-400 hover:text-surface-200 hover:bg-surface-800'
+            }`}
+          >
+            <tab.icon size={14} />
+            <span className="hidden xs:inline">{tab.label}</span>
+          </button>
+        ))}
+      </div>
+
+      {/* Mobile Tab Content */}
+      <div className="flex-1 overflow-y-auto lg:overflow-visible">
+        <AnimatePresence mode="wait">
+          {activeTab === 'controls' && (
+            <motion.div
+              key="controls"
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -10 }}
+              className="p-4 lg:p-0 lg:space-y-0"
+            >
+              <ControlPanel
+                size={dimensions.cols}
+                sizeShower={true}
+                speed={speed}
+                isPaused={isPaused}
+                hasGenerator={hasGenerator}
+                viewMode="Grid"
+                brush={brush}
+                onBrushChange={setBrush}
+                onSpeedChange={setSpeed}
+                onSizeChange={(val) => {
+                  setDimensions({
+                    rows: Math.floor(val / 2) | 1,
+                    cols: val | 1,
+                  });
+                }}
+                onExecute={() => handleExecute(algorithm, true)}
+                onStop={handleStopAll}
+                onTogglePause={() => {
+                  if (isPaused && activeGenRef.current) {
+                    startTimer();
+                    runSimulation(activeGenRef.current);
+                  } else {
+                    togglePause();
+                    stopTimer();
+                  }
+                }}
+                onShuffle={() => initGrid(dimensions.rows, dimensions.cols)}
+                onStepBack={stepBackward}
+                onStepForward={stepForward}
+                onStartStepByStep={() => handleExecute(algorithm, false)}
+                onGenerate={() => initGrid(dimensions.rows, dimensions.cols)}
+                onGenerateMaze={handleGenerateMaze}
+                isBenchmarking={isBenchmarking}
+                onGeneratePattern={() => {}}
+                onManualUpdate={() => {}}
+                onQuickBenchmark={() => runFullBenchmark(false)}
+                onVisualRun={() => runFullBenchmark(true)}
+              />
+            </motion.div>
+          )}
+
+          {activeTab === 'code' && (
+            <motion.div
+              key="code"
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -10 }}
+              className="p-4 lg:hidden"
+            >
+              <CodeViewer
+                data={getAlgoData(algorithm)}
+                activeLine={activeLine}
+                variables={variables}
+              />
+            </motion.div>
+          )}
+
+          {activeTab === 'stats' && (
+            <motion.div
+              key="stats"
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -10 }}
+              className="p-4"
+            >
+              <StatDashboard className="mb-4">
+                <StatCard label="Algorithm" value={algorithm} highlight={true} />
+                <StatCard
+                  label="Heuristic"
+                  value={algorithmHasHeuristic(algorithm) ? heuristic : 'N/A'}
+                />
+                <StatCard label="Time" value={(executionTime / 1000).toFixed(2) + 's'} />
+                <StatCard label="Explored" value={nodesExplored} />
+              </StatDashboard>
+            </motion.div>
+          )}
+
+          {activeTab === 'history' && (
+            <motion.div
+              key="history"
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -10 }}
+              className="p-4 lg:hidden"
+            >
+              <TelemetryLog history={history} />
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        {/* Visualization */}
+        <div className="flex-1 p-4 lg:p-6 lg:mt-auto">
+          <div
+            className="bg-surface-950 border border-surface-800 rounded-xl flex items-center justify-center overflow-hidden relative cursor-crosshair touch-none"
+            onMouseDown={() => setIsMousePressed(true)}
+            onMouseUp={() => setIsMousePressed(false)}
+            onMouseLeave={() => setIsMousePressed(false)}
+            onTouchStart={() => setIsMousePressed(true)}
+            onTouchEnd={() => setIsMousePressed(false)}
+          >
+            <GridVisualizer
+              grid={grid}
+              dimensions={dimensions}
+              startPos={startPos}
+              endPos={endPos}
+              onNodeMouseDown={handleNodeInteraction}
+              onNodeMouseEnter={(r, c) =>
+                isMousePressed && handleNodeInteraction(r, c)
+              }
+              isMousePressed={isMousePressed}
+            />
+          </div>
+        </div>
+      </div>
+
+      {/* Desktop Stats */}
+      <div className="hidden lg:block p-4 border-t border-surface-800">
+        <StatDashboard>
           <StatCard label="Algorithm" value={algorithm} highlight={true} />
           <StatCard
             label="Heuristic"
@@ -509,30 +585,18 @@ export default function GridPage() {
           />
           <StatCard label="Units" value={dimensions.rows * dimensions.cols} />
           <StatCard label="Speed" value={`${speed}ms`} />
-        </div>
+        </StatDashboard>
+      </div>
+    </div>
+  );
 
-        <div
-          className="flex-1 bg-slate-950 border border-slate-800 rounded-2xl sm:rounded-3xl flex items-center justify-center overflow-hidden relative cursor-crosshair touch-none min-h-112.5"
-          onMouseDown={() => setIsMousePressed(true)}
-          onMouseUp={() => setIsMousePressed(false)}
-          onMouseLeave={() => setIsMousePressed(false)}
-          onTouchStart={() => setIsMousePressed(true)}
-          onTouchEnd={() => setIsMousePressed(false)}
-        >
-          <GridVisualizer
-            grid={grid}
-            dimensions={dimensions}
-            startPos={startPos}
-            endPos={endPos}
-            onNodeMouseDown={handleNodeInteraction}
-            onNodeMouseEnter={(r, c) =>
-              isMousePressed && handleNodeInteraction(r, c)
-            }
-            isMousePressed={isMousePressed}
-          />
-        </div>
-      </section>
-
+  return (
+    <LayoutWrapper
+      title="Pathfinding Pulse"
+      subtitle="Diagnostic Engine"
+      sidebar={sidebarContent}
+      main={mainContent}
+    >
       {showBenchmarkModal && (
         <BenchmarkModal
           data={benchmarkResults}
@@ -540,6 +604,6 @@ export default function GridPage() {
           onReRun={() => runFullBenchmark(false)}
         />
       )}
-    </main>
+    </LayoutWrapper>
   );
 }

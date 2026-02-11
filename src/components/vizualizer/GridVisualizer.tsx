@@ -1,8 +1,9 @@
 'use client';
 
-import React, { useRef, useState } from 'react';
-import { motion } from 'framer-motion';
+import React, { useRef, useState, useEffect, useCallback, useMemo } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { PathfindingNode } from '@/hooks/algorithms/pathfindingAlgorithms';
+import { ZoomIn, ZoomOut, Maximize2, Grid3X3 } from 'lucide-react';
 
 interface GridVisualizerProps {
   grid: PathfindingNode[][];
@@ -23,11 +24,42 @@ export const GridVisualizer = ({
   onNodeMouseEnter,
   isMousePressed,
 }: GridVisualizerProps) => {
-  const [scale, setScale] = useState(1); // Scale state for "Zoom"
+  const [scale, setScale] = useState(1);
+  const [isFitMode, setIsFitMode] = useState(true);
+  const containerRef = useRef<HTMLDivElement>(null);
   const gridRef = useRef<HTMLDivElement>(null);
 
-  // Base size that looks good on desktop
+  const MIN_NODE_SIZE = 16;
   const BASE_NODE_SIZE = 24;
+
+  const currentNodeSize = useMemo(
+    () => Math.round(BASE_NODE_SIZE * scale),
+    [scale],
+  );
+
+  useEffect(() => {
+    const updateFit = () => {
+      if (containerRef.current && isFitMode) {
+        const containerWidth = containerRef.current.offsetWidth;
+        const requiredWidth = dimensions.cols * BASE_NODE_SIZE + 32;
+        if (containerWidth < requiredWidth) {
+          setScale(Math.max(0.4, containerWidth / requiredWidth));
+        }
+      }
+    };
+
+    updateFit();
+    window.addEventListener('resize', updateFit);
+    return () => window.removeEventListener('resize', updateFit);
+  }, [dimensions, isFitMode]);
+
+  const handleZoom = useCallback(
+    (delta: number) => {
+      setIsFitMode(false);
+      setScale((prev) => Math.max(0.3, Math.min(1.5, prev + delta)));
+    },
+    [],
+  );
 
   const handleTouchMove = (e: React.TouchEvent) => {
     if (!isMousePressed) return;
@@ -41,55 +73,88 @@ export const GridVisualizer = ({
     }
   };
 
-  const getNodeStyles = (node: PathfindingNode, r: number, c: number) => {
-    const isStart = r === startPos.row && c === startPos.col;
-    const isEnd = r === endPos.row && c === endPos.col;
-
-    if (isStart)
-      return 'bg-emerald-400 shadow-[0_0_15px_rgba(52,211,153,0.6)] z-20 rounded-md scale-95';
-    if (isEnd)
-      return 'bg-rose-500 shadow-[0_0_15px_rgba(244,63,94,0.6)] z-20 rounded-md scale-95';
+  const getNodeStyles = (node: PathfindingNode) => {
     if (node.isPath)
-      return 'bg-amber-400 shadow-[0_0_12px_rgba(251,191,36,0.8)] z-10 scale-90 rounded-sm';
-    if (node.isVisited) return 'bg-cyan-500/30 border border-cyan-400/20';
-    if (node.isWall) return 'bg-slate-700 border border-slate-600 rounded-sm';
-    if (node.isMud) return 'bg-amber-900/40 border border-amber-700/30';
+      return 'bg-warning-400 shadow-lg z-10 rounded-sm scale-95';
+    if (node.isVisited)
+      return 'bg-primary-500/40 border border-primary-400/20';
+    if (node.isWall)
+      return 'bg-surface-700 border border-surface-600 rounded-sm';
+    if (node.isMud)
+      return 'bg-amber-900/50 border border-amber-700/30 rounded-sm';
 
-    return 'bg-slate-900/40 border border-slate-800/50';
+    return 'bg-surface-800/60 border border-surface-700/50';
   };
 
   return (
-    <div className="w-full flex flex-col items-center gap-4">
-      {/* Zoom Control UI */}
-      <div className="flex items-center gap-3 bg-slate-900/80 px-4 py-2 rounded-full border border-slate-700 text-xs text-slate-300">
-        <span>Zoom Out</span>
-        <input
-          type="range"
-          min="0.3"
-          max="1"
-          step="0.1"
-          value={scale}
-          onChange={(e) => setScale(parseFloat(e.target.value))}
-          className="w-24 h-1.5 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-emerald-500"
-        />
-        <span>100%</span>
+    <div className="w-full flex flex-col gap-3">
+      {/* Toolbar */}
+      <div className="flex items-center justify-between gap-4 px-2">
+        <div className="flex items-center gap-2">
+          <Grid3X3 size={14} className="text-surface-500" />
+          <span className="text-xs text-surface-500">
+            {dimensions.rows} × {dimensions.cols}
+          </span>
+        </div>
+
+        <div className="flex items-center gap-2 bg-surface-800/80 px-3 py-1.5 rounded-full border border-surface-700">
+          <button
+            onClick={() => handleZoom(-0.1)}
+            disabled={scale <= 0.3}
+            className="p-1 rounded hover:bg-surface-700 disabled:opacity-30 transition-colors"
+            title="Zoom Out"
+          >
+            <ZoomOut size={14} className="text-surface-300" />
+          </button>
+
+          <button
+            onClick={() => {
+              setIsFitMode(true);
+              setScale(1);
+            }}
+            className={`p-1 rounded transition-colors ${isFitMode ? 'bg-primary-500/20 text-primary-400' : 'hover:bg-surface-700 text-surface-300'}`}
+            title="Fit to Screen"
+          >
+            <Maximize2 size={14} />
+          </button>
+
+          <span className="text-xs font-mono text-surface-400 w-12 text-center">
+            {Math.round(scale * 100)}%
+          </span>
+
+          <button
+            onClick={() => handleZoom(0.1)}
+            disabled={scale >= 1.5}
+            className="p-1 rounded hover:bg-surface-700 disabled:opacity-30 transition-colors"
+            title="Zoom In"
+          >
+            <ZoomIn size={14} className="text-surface-300" />
+          </button>
+        </div>
       </div>
 
-      <div className="w-full max-w-[100vw] overflow-auto p-2 sm:p-4 bg-slate-950 rounded-xl border border-slate-800 shadow-2xl touch-none flex justify-center">
+      {/* Grid Container */}
+      <div
+        ref={containerRef}
+        className="w-full overflow-auto p-3 bg-surface-950 rounded-xl border border-surface-800 shadow-inner"
+      >
         <div
           ref={gridRef}
-          className="grid gap-px bg-transparent origin-top transition-transform duration-200"
+          className="grid gap-px bg-surface-800/50 origin-top transition-transform duration-200"
           onTouchMove={handleTouchMove}
           style={{
-            gridTemplateColumns: `repeat(${dimensions.cols}, ${BASE_NODE_SIZE}px)`,
-            transform: `scale(${scale})`, // This shrinks the grid to fit the screen
+            gridTemplateColumns: `repeat(${dimensions.cols}, ${currentNodeSize}px)`,
+            transform: `scale(${scale})`,
+            transformOrigin: 'top center',
             width: 'fit-content',
           }}
         >
           {grid.map((row, rIdx) =>
             row.map((node, cIdx) => {
-              const isStart = rIdx === startPos.row && cIdx === startPos.col;
-              const isEnd = rIdx === endPos.row && cIdx === endPos.col;
+              const isStart =
+                rIdx === startPos.row && cIdx === startPos.col;
+              const isEnd =
+                rIdx === endPos.row && cIdx === endPos.col;
 
               return (
                 <div
@@ -102,21 +167,31 @@ export const GridVisualizer = ({
                   onTouchStart={() => onNodeMouseDown(rIdx, cIdx)}
                   className={`
                     relative transition-all duration-150 cursor-crosshair select-none
-                    ${getNodeStyles(node, rIdx, cIdx)}
+                    ${getNodeStyles(node)}
+                    ${isStart ? 'bg-success-400 shadow-lg z-20 rounded-md scale-95' : ''}
+                    ${isEnd ? 'bg-error-500 shadow-lg z-20 rounded-md scale-95' : ''}
                   `}
                   style={{
-                    width: BASE_NODE_SIZE,
-                    height: BASE_NODE_SIZE,
+                    width: currentNodeSize,
+                    height: currentNodeSize,
                     touchAction: 'none',
+                    minWidth: MIN_NODE_SIZE,
+                    minHeight: MIN_NODE_SIZE,
                   }}
                 >
-                  {(isStart || isEnd) && (
-                    <motion.div
-                      animate={{ scale: [1, 1.4, 1], opacity: [0.4, 0, 0.4] }}
-                      transition={{ repeat: Infinity, duration: 2.5 }}
-                      className={`absolute inset-0 rounded-lg ${isStart ? 'bg-emerald-400' : 'bg-rose-500'} blur-md -z-10`}
-                    />
-                  )}
+                  <AnimatePresence>
+                    {(isStart || isEnd) && (
+                      <motion.div
+                        initial={{ scale: 0, opacity: 0 }}
+                        animate={{ scale: [1, 1.3, 1], opacity: [0.6, 0.2, 0.6] }}
+                        exit={{ scale: 0, opacity: 0 }}
+                        transition={{ repeat: Infinity, duration: 2 }}
+                        className={`absolute inset-0 rounded-md ${
+                          isStart ? 'bg-success-400' : 'bg-error-500'
+                        } blur-md -z-10`}
+                      />
+                    )}
+                  </AnimatePresence>
                 </div>
               );
             }),
@@ -124,11 +199,24 @@ export const GridVisualizer = ({
         </div>
       </div>
 
-      {scale < 0.6 && (
-        <p className="text-[10px] text-rose-400 animate-pulse">
-          Tip: Zooming in makes it easier to draw walls precisely!
-        </p>
-      )}
+      {/* Legend */}
+      <div className="flex items-center justify-center gap-4 px-2">
+        {[
+          { color: 'bg-success-400', label: 'Start' },
+          { color: 'bg-error-500', label: 'End' },
+          { color: 'bg-warning-400', label: 'Path' },
+          { color: 'bg-primary-500/40', label: 'Visited' },
+          { color: 'bg-surface-700', label: 'Wall' },
+          { color: 'bg-amber-900/50', label: 'Mud' },
+        ].map((item) => (
+          <div key={item.label} className="flex items-center gap-1.5">
+            <div
+              className={`w-3 h-3 rounded-sm ${item.color} border border-surface-600`}
+            />
+            <span className="text-[10px] text-surface-500">{item.label}</span>
+          </div>
+        ))}
+      </div>
     </div>
   );
 };
